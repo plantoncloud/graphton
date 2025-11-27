@@ -2,7 +2,7 @@
 name = "graphton"
 version = "0.1.0"
 description = "Declarative agent creation framework for LangGraph"
-authors = ["Planton Cloud <engineering@planton.cloud>"]
+authors = ["Suresh Attaluri <suresh@planton.ai>"]
 license = "Apache-2.0"
 readme = "README.md"
 homepage = "https://github.com/plantoncloud-inc/graphton"
@@ -17,7 +17,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
-packages = [{include = "graphton"}]
+packages = [{include = "graphton", from = "src"}]
 
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0"

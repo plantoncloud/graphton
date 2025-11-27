@@ -23,7 +23,7 @@ lint:
 
 typecheck:
 	@echo "Running mypy type checker..."
-	poetry run mypy graphton/
+	poetry run mypy src/graphton/
 
 build: lint typecheck test
 	@echo "✅ All checks passed!"
