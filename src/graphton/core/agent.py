@@ -13,6 +13,7 @@ from deepagents import (  # type: ignore[import-untyped]
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
+from pydantic import ValidationError
 
 from graphton.core.models import parse_model_string
 
@@ -126,13 +127,29 @@ def create_deep_agent(
         ... )
     
     """
-    # Validate system prompt
-    if not system_prompt or not system_prompt.strip():
-        raise ValueError("system_prompt cannot be empty")
+    # Validate configuration using AgentConfig model
+    # This provides early error detection with helpful messages
+    from graphton.core.config import AgentConfig
     
-    # Validate recursion limit
-    if recursion_limit <= 0:
-        raise ValueError(f"recursion_limit must be positive, got {recursion_limit}")
+    try:
+        # Validate configuration (validation happens in constructor)
+        _ = AgentConfig(
+            model=model,
+            system_prompt=system_prompt,
+            mcp_servers=mcp_servers,
+            mcp_tools=mcp_tools,
+            tools=tools,
+            middleware=middleware,
+            context_schema=context_schema,
+            recursion_limit=recursion_limit,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+    except ValidationError as e:
+        # Re-raise with context about configuration validation
+        raise ValueError(
+            f"Configuration validation failed:\n{e}"
+        ) from e
     
     # Parse model if string, otherwise use instance directly
     if isinstance(model, str):

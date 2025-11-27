@@ -69,8 +69,8 @@ result = graph.invoke(
 
 ✅ **Phase 1**: Foundation - Project structure and packaging  
 ✅ **Phase 2**: Core agent factory - Model and system prompt handling  
-✅ **Phase 3 (Current)**: MCP integration - Server config and tool loading  
-🔜 **Phase 4**: Configuration validation enhancements  
+✅ **Phase 3**: MCP integration - Server config and tool loading  
+✅ **Phase 4**: Configuration validation with Pydantic  
 🔜 **Phase 5**: Documentation and open source release  
 
 ## Installation
@@ -242,6 +242,123 @@ Unlike approaches that rely on `runtime.context` (unavailable in LangGraph Cloud
 
 See [`examples/mcp_agent.py`](examples/mcp_agent.py) for a complete working example.
 
+## Configuration Validation
+
+Graphton validates all configuration at graph creation time, providing clear error messages before execution.
+
+### Early Error Detection
+
+Invalid configurations are caught immediately with helpful guidance:
+
+```python
+# Invalid configuration caught immediately
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="",  # ❌ Error: system_prompt cannot be empty
+)
+# ValueError: Configuration validation failed:
+# system_prompt cannot be empty. Provide a clear description 
+# of the agent's role and capabilities.
+```
+
+### Helpful Suggestions
+
+Error messages include context and actionable suggestions:
+
+```python
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="You are helpful.",
+    mcp_servers={"planton-cloud": {"url": "https://mcp.planton.ai/"}},
+    # ❌ Missing mcp_tools
+)
+# ValueError: Configuration validation failed:
+# mcp_servers provided but mcp_tools is missing.
+# Specify which tools to load: mcp_tools={'server-name': ['tool1', 'tool2']}
+```
+
+### Parameter Validation
+
+All parameters are validated with clear error messages:
+
+```python
+# Invalid temperature
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="You are helpful.",
+    temperature=5.0,  # ❌ Out of range
+)
+# ValueError: Configuration validation failed:
+# temperature must be between 0.0 and 2.0, got 5.0.
+# Use 0.0-0.3 for deterministic output, 0.7-1.0 for creative output.
+
+# Invalid recursion limit
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="You are helpful.",
+    recursion_limit=0,  # ❌ Must be positive
+)
+# ValueError: Configuration validation failed:
+# recursion_limit must be positive, got 0.
+# Recommended range: 10-200 depending on agent complexity.
+```
+
+### IDE Autocomplete
+
+Graphton uses Pydantic models, enabling rich IDE support:
+
+```python
+from graphton import create_deep_agent
+
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="...",
+    recursion_limit=  # ← IDE shows: int = 100 (with docstring)
+    temperature=      # ← IDE shows: float | None = None (with docstring)
+    mcp_servers=      # ← IDE shows: dict[str, dict[str, Any]] | None = None
+)
+```
+
+### MCP Configuration Validation
+
+MCP server and tools configurations are thoroughly validated:
+
+```python
+# Server name mismatch
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="...",
+    mcp_servers={"server-a": {"url": "https://a.example.com/"}},
+    mcp_tools={"server-b": ["tool1"]},  # ❌ Name mismatch
+)
+# ValueError: Configuration validation failed:
+# Server(s) configured but no tools specified: {'server-a'}.
+# Tools specified for undefined server(s): {'server-b'}.
+
+# Invalid tool names
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="...",
+    mcp_servers={"server": {"url": "https://example.com/"}},
+    mcp_tools={"server": ["tool@invalid!"]},  # ❌ Invalid characters
+)
+# ValueError: Configuration validation failed:
+# Invalid tool name 'tool@invalid!' in server 'server'.
+# Tool names should use alphanumeric characters, underscores, or hyphens.
+```
+
+### Type Safety
+
+Full type checking support with mypy:
+
+```bash
+# Type errors caught by mypy before runtime
+make typecheck
+# Success: no issues found in 10 source files
+```
+
+For complete configuration documentation, see [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md).
+
 ## Motivation
 
 The Graphton Framework was born from building the [graph-fleet](https://github.com/plantoncloud-inc/graph-fleet) service for Planton Cloud. After implementing three agents (AWS RDS Instance Creator, RDS Manifest Generator, Session Subject Generator), we discovered substantial code duplication—each requiring 100+ lines of configuration before writing actual agent logic.
@@ -287,11 +404,17 @@ Graphton abstracts these patterns into a declarative framework, making agent cre
 - [x] Context-based token storage (works in local + remote)
 - [x] Integration tests with real and mock MCP servers
 
-### Phase 4: Configuration Validation
-- [ ] Pydantic models for validation
-- [ ] Clear error messages
-- [ ] Type hints throughout
-- [ ] URL and tool name validation
+### Phase 4: Configuration Validation ✅ (Complete)
+- [x] Top-level AgentConfig Pydantic model
+- [x] Enhanced McpServerConfig and McpToolsConfig validation
+- [x] Clear error messages with actionable suggestions
+- [x] Type hints throughout (mypy clean)
+- [x] URL scheme validation with warnings
+- [x] Tool name format validation
+- [x] Duplicate tool detection
+- [x] Server name consistency validation
+- [x] Comprehensive test suite (37 tests)
+- [x] Configuration documentation
 
 ### Phase 5: Documentation & Release
 - [ ] Comprehensive README

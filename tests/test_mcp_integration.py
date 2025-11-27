@@ -144,10 +144,10 @@ class TestMcpConfigurationValidation:
     
     def test_mcp_servers_without_tools_fails(self) -> None:
         """Test that providing mcp_servers without mcp_tools fails."""
-        with pytest.raises(ValueError, match="Both mcp_servers and mcp_tools must be provided"):
+        with pytest.raises(ValueError, match="mcp_tools is missing"):
             create_deep_agent(
                 model="claude-sonnet-4.5",
-                system_prompt="Test",
+                system_prompt="You are a test assistant.",
                 mcp_servers={
                     "planton-cloud": {
                         "transport": "streamable_http",
@@ -159,10 +159,10 @@ class TestMcpConfigurationValidation:
     
     def test_mcp_tools_without_servers_fails(self) -> None:
         """Test that providing mcp_tools without mcp_servers fails."""
-        with pytest.raises(ValueError, match="Both mcp_servers and mcp_tools must be provided"):
+        with pytest.raises(ValueError, match="mcp_servers is missing"):
             create_deep_agent(
                 model="claude-sonnet-4.5",
-                system_prompt="Test",
+                system_prompt="You are a test assistant.",
                 mcp_servers=None,  # Missing
                 mcp_tools={
                     "planton-cloud": ["list_organizations"]
@@ -171,10 +171,10 @@ class TestMcpConfigurationValidation:
     
     def test_invalid_transport_fails(self) -> None:
         """Test that invalid transport type is rejected."""
-        with pytest.raises(ValueError, match="streamable_http"):
+        with pytest.raises(ValueError, match="Unsupported transport"):
             create_deep_agent(
                 model="claude-sonnet-4.5",
-                system_prompt="Test",
+                system_prompt="You are a test assistant.",
                 mcp_servers={
                     "test": {
                         "transport": "stdio",  # Not supported yet
@@ -191,7 +191,7 @@ class TestMcpConfigurationValidation:
         with pytest.raises(ValueError):
             create_deep_agent(
                 model="claude-sonnet-4.5",
-                system_prompt="Test",
+                system_prompt="You are a test assistant.",
                 mcp_servers={
                     "test": {
                         "transport": "streamable_http",
