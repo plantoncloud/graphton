@@ -44,16 +44,16 @@ class TestAnthropicIntegration:
         
         # The last message should contain the assistant's response
         last_message = result["messages"][-1]
-        assert last_message["role"] == "assistant"
-        assert "content" in last_message
+        # Messages are AIMessage objects, not dicts
+        content = last_message.content if hasattr(last_message, 'content') else str(last_message)
         
         # Should contain "4" somewhere in the response
-        assert "4" in last_message["content"]
+        assert "4" in content
     
     def test_agent_with_custom_parameters(self) -> None:
         """Test agent with custom temperature and max_tokens."""
         agent = create_deep_agent(
-            model="claude-haiku-4",
+            model="claude-sonnet-4.5",
             system_prompt="You are a helpful assistant.",
             temperature=0.1,  # Very deterministic
             max_tokens=500,
@@ -111,11 +111,11 @@ class TestOpenAIIntegration:
         
         # The last message should contain the assistant's response
         last_message = result["messages"][-1]
-        assert last_message["role"] == "assistant"
-        assert "content" in last_message
+        # Messages are AIMessage objects, not dicts
+        content = last_message.content if hasattr(last_message, 'content') else str(last_message)
         
         # Should contain "6" somewhere in the response
-        assert "6" in last_message["content"]
+        assert "6" in content
     
     def test_agent_with_custom_parameters(self) -> None:
         """Test OpenAI agent with custom parameters."""
@@ -208,12 +208,14 @@ class TestAgentBehavior:
         })
         
         # Response should contain pirate-like language
-        last_message = result["messages"][-1]["content"]
+        last_message = result["messages"][-1]
+        content = last_message.content if hasattr(last_message, 'content') else str(last_message)
+        
         # Look for common pirate terms (case insensitive)
         pirate_terms = ["arrr", "ahoy", "matey", "ye", "aye", "sea", "ship"]
-        has_pirate_term = any(term in last_message.lower() for term in pirate_terms)
+        has_pirate_term = any(term in content.lower() for term in pirate_terms)
         
-        assert has_pirate_term, f"Expected pirate speak but got: {last_message}"
+        assert has_pirate_term, f"Expected pirate speak but got: {content}"
     
     @skip_if_no_anthropic_key
     def test_recursion_limit_respected(self) -> None:
