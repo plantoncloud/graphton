@@ -1,5 +1,6 @@
 """Unit tests for agent factory."""
 
+import os
 import warnings
 import pytest
 from langchain_anthropic import ChatAnthropic
@@ -7,6 +8,13 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph.state import CompiledStateGraph
 
 from graphton import create_deep_agent
+
+
+# Skip OpenAI tests if API key not available
+skip_if_no_openai_key = pytest.mark.skipif(
+    not os.getenv("OPENAI_API_KEY"),
+    reason="OPENAI_API_KEY not set",
+)
 
 
 class TestBasicAgentCreation:
@@ -29,6 +37,7 @@ class TestBasicAgentCreation:
         )
         assert isinstance(agent, CompiledStateGraph)
     
+    @skip_if_no_openai_key
     def test_create_agent_with_openai_instance(self) -> None:
         """Test creating agent with ChatOpenAI instance."""
         model = ChatOpenAI(model="gpt-4o")
@@ -38,6 +47,7 @@ class TestBasicAgentCreation:
         )
         assert isinstance(agent, CompiledStateGraph)
     
+    @skip_if_no_openai_key
     def test_create_agent_openai_model_string(self) -> None:
         """Test creating agent with OpenAI model string."""
         agent = create_deep_agent(
@@ -237,8 +247,8 @@ class TestValidation:
 class TestModelInstanceWithParameters:
     """Tests for handling of parameters when model instance is provided."""
     
-    def test_warning_on_max_tokens_with_instance(self) -> None:
-        """Test that warning is raised when max_tokens provided with model instance."""
+    def test_warning_on_max_tokens_with_instance_anthropic(self) -> None:
+        """Test that warning is raised when max_tokens provided with Anthropic model instance."""
         model = ChatAnthropic(model="claude-sonnet-4-5-20250929", max_tokens=10000)
         
         with warnings.catch_warnings(record=True) as w:
@@ -248,11 +258,30 @@ class TestModelInstanceWithParameters:
                 system_prompt="You are a helpful assistant.",
                 max_tokens=15000,
             )
-            assert len(w) == 1
-            assert "Model instance provided with additional parameters" in str(w[0].message)
+            # Filter out DeprecationWarnings from deepagents
+            user_warnings = [warning for warning in w if issubclass(warning.category, UserWarning)]
+            assert len(user_warnings) == 1
+            assert "Model instance provided with additional parameters" in str(user_warnings[0].message)
     
-    def test_warning_on_temperature_with_instance(self) -> None:
-        """Test that warning is raised when temperature provided with model instance."""
+    @skip_if_no_openai_key
+    def test_warning_on_max_tokens_with_instance_openai(self) -> None:
+        """Test that warning is raised when max_tokens provided with OpenAI model instance."""
+        model = ChatOpenAI(model="gpt-4o")
+        
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            create_deep_agent(
+                model=model,
+                system_prompt="You are a helpful assistant.",
+                max_tokens=15000,
+            )
+            # Filter out DeprecationWarnings from deepagents
+            user_warnings = [warning for warning in w if issubclass(warning.category, UserWarning)]
+            assert len(user_warnings) == 1
+            assert "Model instance provided with additional parameters" in str(user_warnings[0].message)
+    
+    def test_warning_on_temperature_with_instance_anthropic(self) -> None:
+        """Test that warning is raised when temperature provided with Anthropic model instance."""
         model = ChatAnthropic(model="claude-sonnet-4-5-20250929", max_tokens=10000)
         
         with warnings.catch_warnings(record=True) as w:
@@ -262,11 +291,30 @@ class TestModelInstanceWithParameters:
                 system_prompt="You are a helpful assistant.",
                 temperature=0.7,
             )
-            assert len(w) == 1
-            assert "Model instance provided with additional parameters" in str(w[0].message)
+            # Filter out DeprecationWarnings from deepagents
+            user_warnings = [warning for warning in w if issubclass(warning.category, UserWarning)]
+            assert len(user_warnings) == 1
+            assert "Model instance provided with additional parameters" in str(user_warnings[0].message)
     
-    def test_warning_on_model_kwargs_with_instance(self) -> None:
-        """Test that warning is raised when model kwargs provided with model instance."""
+    @skip_if_no_openai_key
+    def test_warning_on_temperature_with_instance_openai(self) -> None:
+        """Test that warning is raised when temperature provided with OpenAI model instance."""
+        model = ChatOpenAI(model="gpt-4o")
+        
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            create_deep_agent(
+                model=model,
+                system_prompt="You are a helpful assistant.",
+                temperature=0.7,
+            )
+            # Filter out DeprecationWarnings from deepagents
+            user_warnings = [warning for warning in w if issubclass(warning.category, UserWarning)]
+            assert len(user_warnings) == 1
+            assert "Model instance provided with additional parameters" in str(user_warnings[0].message)
+    
+    def test_warning_on_model_kwargs_with_instance_anthropic(self) -> None:
+        """Test that warning is raised when model kwargs provided with Anthropic model instance."""
         model = ChatAnthropic(model="claude-sonnet-4-5-20250929", max_tokens=10000)
         
         with warnings.catch_warnings(record=True) as w:
@@ -276,11 +324,30 @@ class TestModelInstanceWithParameters:
                 system_prompt="You are a helpful assistant.",
                 top_p=0.9,
             )
-            assert len(w) == 1
-            assert "Model instance provided with additional parameters" in str(w[0].message)
+            # Filter out DeprecationWarnings from deepagents
+            user_warnings = [warning for warning in w if issubclass(warning.category, UserWarning)]
+            assert len(user_warnings) == 1
+            assert "Model instance provided with additional parameters" in str(user_warnings[0].message)
     
-    def test_no_warning_without_extra_parameters(self) -> None:
-        """Test that no warning is raised when only model instance is provided."""
+    @skip_if_no_openai_key
+    def test_warning_on_model_kwargs_with_instance_openai(self) -> None:
+        """Test that warning is raised when model kwargs provided with OpenAI model instance."""
+        model = ChatOpenAI(model="gpt-4o")
+        
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            create_deep_agent(
+                model=model,
+                system_prompt="You are a helpful assistant.",
+                top_p=0.9,
+            )
+            # Filter out DeprecationWarnings from deepagents
+            user_warnings = [warning for warning in w if issubclass(warning.category, UserWarning)]
+            assert len(user_warnings) == 1
+            assert "Model instance provided with additional parameters" in str(user_warnings[0].message)
+    
+    def test_no_warning_without_extra_parameters_anthropic(self) -> None:
+        """Test that no warning is raised when only Anthropic model instance is provided."""
         model = ChatAnthropic(model="claude-sonnet-4-5-20250929", max_tokens=10000)
         
         with warnings.catch_warnings(record=True) as w:
@@ -289,7 +356,24 @@ class TestModelInstanceWithParameters:
                 model=model,
                 system_prompt="You are a helpful assistant.",
             )
-            assert len(w) == 0
+            # Filter out DeprecationWarnings from deepagents
+            user_warnings = [warning for warning in w if issubclass(warning.category, UserWarning)]
+            assert len(user_warnings) == 0
+    
+    @skip_if_no_openai_key
+    def test_no_warning_without_extra_parameters_openai(self) -> None:
+        """Test that no warning is raised when only OpenAI model instance is provided."""
+        model = ChatOpenAI(model="gpt-4o")
+        
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            create_deep_agent(
+                model=model,
+                system_prompt="You are a helpful assistant.",
+            )
+            # Filter out DeprecationWarnings from deepagents
+            user_warnings = [warning for warning in w if issubclass(warning.category, UserWarning)]
+            assert len(user_warnings) == 0
 
 
 class TestMultipleModelProviders:
@@ -305,6 +389,7 @@ class TestMultipleModelProviders:
             )
             assert isinstance(agent, CompiledStateGraph)
     
+    @skip_if_no_openai_key
     def test_openai_models(self) -> None:
         """Test that OpenAI models work."""
         models = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"]

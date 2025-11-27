@@ -1,10 +1,18 @@
 """Unit tests for model string parser."""
 
+import os
 import pytest
 from langchain_anthropic import ChatAnthropic
 from langchain_openai import ChatOpenAI
 
 from graphton.core.models import parse_model_string
+
+
+# Skip OpenAI tests if API key not available
+skip_if_no_openai_key = pytest.mark.skipif(
+    not os.getenv("OPENAI_API_KEY"),
+    reason="OPENAI_API_KEY not set",
+)
 
 
 class TestAnthropicModelParsing:
@@ -41,6 +49,7 @@ class TestAnthropicModelParsing:
         assert model.model == "claude-sonnet-4-5-20250929"
 
 
+@skip_if_no_openai_key
 class TestOpenAIModelParsing:
     """Tests for OpenAI model name resolution."""
     
@@ -90,6 +99,7 @@ class TestDefaultParameters:
         assert isinstance(model, ChatAnthropic)
         assert model.max_tokens == 20000
     
+    @skip_if_no_openai_key
     def test_openai_no_default_max_tokens(self) -> None:
         """Test that OpenAI models don't get default max_tokens."""
         model = parse_model_string("gpt-4o")
@@ -113,23 +123,25 @@ class TestParameterOverrides:
         assert isinstance(model, ChatAnthropic)
         assert model.temperature == 0.7
     
+    def test_additional_model_kwargs(self) -> None:
+        """Test passing additional model-specific parameters."""
+        model = parse_model_string("claude-sonnet-4.5", top_p=0.9)
+        assert isinstance(model, ChatAnthropic)
+        assert model.top_p == 0.9
+    
+    @skip_if_no_openai_key
     def test_override_max_tokens_openai(self) -> None:
         """Test overriding max_tokens for OpenAI models."""
         model = parse_model_string("gpt-4o", max_tokens=5000)
         assert isinstance(model, ChatOpenAI)
         assert model.max_tokens == 5000
     
+    @skip_if_no_openai_key
     def test_override_temperature_openai(self) -> None:
         """Test overriding temperature for OpenAI models."""
         model = parse_model_string("gpt-4o", temperature=0.3)
         assert isinstance(model, ChatOpenAI)
         assert model.temperature == 0.3
-    
-    def test_additional_model_kwargs(self) -> None:
-        """Test passing additional model-specific parameters."""
-        model = parse_model_string("claude-sonnet-4.5", top_p=0.9)
-        assert isinstance(model, ChatAnthropic)
-        assert model.top_p == 0.9
 
 
 class TestErrorHandling:
