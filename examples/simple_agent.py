@@ -42,7 +42,7 @@ result = agent.invoke({
 
 # Extract and print the response
 response = result["messages"][-1]["content"]
-print(f"User: What is the capital of France?")
+print("User: What is the capital of France?")
 print(f"Agent: {response}")
 print("-" * 60)
 
@@ -57,7 +57,7 @@ messages = [
 
 result = agent.invoke({"messages": messages})
 response = result["messages"][-1]["content"]
-print(f"User: What is 7 times 8?")
+print("User: What is 7 times 8?")
 print(f"Agent: {response}")
 
 # Continue the conversation
@@ -66,7 +66,7 @@ messages.append({"role": "user", "content": "And what is that plus 10?"})
 
 result = agent.invoke({"messages": messages})
 response = result["messages"][-1]["content"]
-print(f"User: And what is that plus 10?")
+print("User: And what is that plus 10?")
 print(f"Agent: {response}")
 print("-" * 60)
 
@@ -88,7 +88,7 @@ result = creative_agent.invoke({
 })
 
 response = result["messages"][-1]["content"]
-print(f"User: Describe a sunset in three sentences.")
+print("User: Describe a sunset in three sentences.")
 print(f"Creative Agent: {response}")
 print("-" * 60)
 
