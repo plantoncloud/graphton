@@ -1,12 +1,12 @@
 """Unit tests for model string parser."""
 
 import os
+
 import pytest
 from langchain_anthropic import ChatAnthropic
 from langchain_openai import ChatOpenAI
 
 from graphton.core.models import parse_model_string
-
 
 # Skip OpenAI tests if API key not available
 skip_if_no_openai_key = pytest.mark.skipif(

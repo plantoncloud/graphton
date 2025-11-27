@@ -2,10 +2,24 @@
 
 Graphton eliminates boilerplate when creating LangGraph agents with MCP tools.
 Create production-ready agents in 3-10 lines instead of 100+.
+
+Key Features:
+- Declarative agent creation with minimal boilerplate
+- Auto-loading MCP tools with per-user authentication
+- Works in both local and remote LangGraph deployments
+- Type-safe configuration with Pydantic validation
 """
 
 from graphton.core.agent import create_deep_agent
+from graphton.core.config import McpServerConfig, McpToolsConfig
+from graphton.core.middleware import McpToolsLoader
 
 __version__ = "0.1.0"
-__all__ = ["__version__", "create_deep_agent"]
+__all__ = [
+    "__version__",
+    "create_deep_agent",
+    "McpServerConfig",
+    "McpToolsConfig",
+    "McpToolsLoader",
+]
 

@@ -7,9 +7,8 @@ eliminating boilerplate for model instantiation and providing sensible defaults.
 from typing import Any
 
 from langchain_anthropic import ChatAnthropic
-from langchain_openai import ChatOpenAI
 from langchain_core.language_models.chat_models import BaseChatModel
-
+from langchain_openai import ChatOpenAI
 
 # Model name mapping for Anthropic models (friendly name -> full model ID)
 ANTHROPIC_MODEL_MAP = {
@@ -28,7 +27,7 @@ def parse_model_string(
     model: str,
     max_tokens: int | None = None,
     temperature: float | None = None,
-    **model_kwargs: Any,
+    **model_kwargs: Any,  # noqa: ANN401
 ) -> BaseChatModel:
     """Parse a model name string into a LangChain model instance.
     
@@ -106,27 +105,27 @@ def parse_model_string(
         model_params.update(model_kwargs)
         
         return ChatAnthropic(
-            model=full_model_name,
+            model=full_model_name,  # type: ignore[call-arg]
             **model_params,
         )
     
     # Parse OpenAI models
     elif provider == "openai":
         # OpenAI uses different parameter names and patterns
-        model_params: dict[str, Any] = {}
+        openai_params: dict[str, Any] = {}
         
         # Apply user overrides
         if max_tokens is not None:
-            model_params["max_tokens"] = max_tokens
+            openai_params["max_tokens"] = max_tokens
         if temperature is not None:
-            model_params["temperature"] = temperature
+            openai_params["temperature"] = temperature
         
         # Merge additional kwargs
-        model_params.update(model_kwargs)
+        openai_params.update(model_kwargs)
         
         return ChatOpenAI(
             model=model_name,
-            **model_params,
+            **openai_params,
         )
     
     else:

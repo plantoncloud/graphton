@@ -68,9 +68,9 @@ result = graph.invoke(
 ## Status
 
 ✅ **Phase 1**: Foundation - Project structure and packaging  
-✅ **Phase 2 (Current)**: Core agent factory - Model and system prompt handling  
-🔜 **Phase 3**: MCP integration - Server config and tool loading  
-🔜 **Phase 4**: Configuration validation - Pydantic models  
+✅ **Phase 2**: Core agent factory - Model and system prompt handling  
+✅ **Phase 3 (Current)**: MCP integration - Server config and tool loading  
+🔜 **Phase 4**: Configuration validation enhancements  
 🔜 **Phase 5**: Documentation and open source release  
 
 ## Installation
@@ -186,16 +186,61 @@ result = agent.invoke({"messages": messages})
 
 See the [`examples/`](examples/) directory for complete working examples:
 - [`simple_agent.py`](examples/simple_agent.py) - Basic agent creation and usage
+- [`mcp_agent.py`](examples/mcp_agent.py) - Agent with MCP tools from Planton Cloud
 
-### What's Next?
+### MCP Tools Integration (Phase 3)
 
-**Phase 3** will add MCP (Model Context Protocol) integration:
-- Declarative MCP server configuration
-- Automatic tool loading with per-user authentication
-- No manual tool wrapper code required
-- Multi-server support
+Create agents with MCP (Model Context Protocol) tools with zero boilerplate:
 
-The example at the top of this README will work in Phase 3!
+```python
+from graphton import create_deep_agent
+import os
+
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="You are a Planton Cloud assistant.",
+    
+    # MCP server configuration (Cursor-compatible format)
+    mcp_servers={
+        "planton-cloud": {
+            "transport": "streamable_http",
+            "url": "https://mcp.planton.ai/",
+        }
+    },
+    
+    # Select which tools to load
+    mcp_tools={
+        "planton-cloud": [
+            "list_organizations",
+            "list_environments_for_org",
+            "create_cloud_resource",
+        ]
+    }
+)
+
+# Invoke with per-user authentication
+result = agent.invoke(
+    {"messages": [{"role": "user", "content": "List my organizations"}]},
+    config={
+        "configurable": {
+            "_user_token": os.getenv("PLANTON_API_KEY")
+        }
+    }
+)
+```
+
+**Key Features**:
+- ✅ **Zero Tool Wrappers**: No manual `@tool` decorator code required
+- ✅ **Per-User Authentication**: Pass tokens via config for multi-tenant apps
+- ✅ **Works Everywhere**: Local and remote LangGraph Cloud deployments
+- ✅ **Auto-Loading**: Tools loaded on first invocation with your credentials
+- ✅ **Type-Safe**: Pydantic validation with clear error messages
+
+**Why It Works Everywhere**:
+
+Unlike approaches that rely on `runtime.context` (unavailable in LangGraph Cloud), Graphton uses Python's `contextvars` and config parameter passing. This ensures your agents work identically in local development and production deployments.
+
+See [`examples/mcp_agent.py`](examples/mcp_agent.py) for a complete working example.
 
 ## Motivation
 
@@ -234,12 +279,13 @@ Graphton abstracts these patterns into a declarative framework, making agent cre
 - [x] Parameter overrides (max_tokens, temperature)
 - [x] Comprehensive unit and integration tests
 
-### Phase 3: MCP Integration
-- [ ] MCP server configuration parser
-- [ ] Tool loading with per-user authentication
-- [ ] Automatic tool wrapper generation
-- [ ] Dynamic middleware injection
-- [ ] Integration tests with mock MCP server
+### Phase 3: MCP Integration ✅ (Complete)
+- [x] MCP server configuration parser
+- [x] Tool loading with per-user authentication
+- [x] Automatic tool wrapper generation
+- [x] Dynamic middleware injection
+- [x] Context-based token storage (works in local + remote)
+- [x] Integration tests with real and mock MCP servers
 
 ### Phase 4: Configuration Validation
 - [ ] Pydantic models for validation

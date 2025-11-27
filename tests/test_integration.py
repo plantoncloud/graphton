@@ -6,10 +6,10 @@ configured in the environment.
 """
 
 import os
+
 import pytest
 
 from graphton import create_deep_agent
-
 
 # Skip integration tests if API keys not available
 skip_if_no_anthropic_key = pytest.mark.skipif(

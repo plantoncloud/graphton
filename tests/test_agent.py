@@ -2,13 +2,13 @@
 
 import os
 import warnings
+
 import pytest
 from langchain_anthropic import ChatAnthropic
 from langchain_openai import ChatOpenAI
 from langgraph.graph.state import CompiledStateGraph
 
 from graphton import create_deep_agent
-
 
 # Skip OpenAI tests if API key not available
 skip_if_no_openai_key = pytest.mark.skipif(
@@ -188,6 +188,7 @@ class TestContextSchema:
         
         class CustomState(TypedDict):
             """Custom state schema for testing."""
+
             messages: list
         
         agent = create_deep_agent(
