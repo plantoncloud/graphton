@@ -67,8 +67,8 @@ result = graph.invoke(
 
 ## Status
 
-🚧 **Phase 1 (Current)**: Foundation - Project structure and packaging  
-🔜 **Phase 2**: Core agent factory - Model and system prompt handling  
+✅ **Phase 1**: Foundation - Project structure and packaging  
+✅ **Phase 2 (Current)**: Core agent factory - Model and system prompt handling  
 🔜 **Phase 3**: MCP integration - Server config and tool loading  
 🔜 **Phase 4**: Configuration validation - Pydantic models  
 🔜 **Phase 5**: Documentation and open source release  
@@ -77,15 +77,125 @@ result = graph.invoke(
 
 **Coming Soon**: Graphton will be published to PyPI after Phase 5.
 
+For now, you can install from source:
+
 ```bash
-pip install graphton
-# or
-poetry add graphton
+# Clone the repository
+git clone https://github.com/plantoncloud-inc/graphton.git
+cd graphton
+
+# Install with Poetry
+poetry install
+
+# Or install in development mode with pip
+pip install -e .
 ```
 
 ## Quick Start
 
-**Coming Soon**: Full quick start guide will be available after Phase 2-3 implementation.
+### Basic Agent Creation
+
+Graphton eliminates boilerplate when creating LangGraph Deep Agents. Here's how to create a simple agent:
+
+```python
+from graphton import create_deep_agent
+
+# Create an agent with just model name and system prompt
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="You are a helpful assistant that answers questions concisely.",
+)
+
+# Invoke the agent
+result = agent.invoke({
+    "messages": [{"role": "user", "content": "What is the capital of France?"}]
+})
+
+print(result["messages"][-1]["content"])
+```
+
+That's it! No need to:
+- Manually instantiate `ChatAnthropic` or other model classes
+- Configure model parameters (sensible defaults provided)
+- Set up recursion limits
+- Write boilerplate configuration code
+
+### Supported Models
+
+**Anthropic** (with friendly aliases):
+- `claude-sonnet-4.5` → claude-sonnet-4-5-20250929
+- `claude-opus-4` → claude-opus-4-20250514
+- `claude-haiku-4` → claude-haiku-4-20250313
+
+**OpenAI**:
+- `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`
+- `o1`, `o1-mini`
+
+### Custom Parameters
+
+You can override defaults easily:
+
+```python
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="You are a creative writer.",
+    temperature=0.9,        # More creative
+    max_tokens=5000,        # Limit response length
+    recursion_limit=50,     # Lower recursion limit
+)
+```
+
+### Advanced Usage
+
+For complete control, you can pass a model instance directly:
+
+```python
+from langchain_anthropic import ChatAnthropic
+
+model = ChatAnthropic(
+    model="claude-opus-4-20250514",
+    max_tokens=30000,
+    temperature=0.5,
+    top_p=0.9,
+)
+
+agent = create_deep_agent(
+    model=model,
+    system_prompt="You are a research assistant.",
+)
+```
+
+### Multi-Turn Conversations
+
+Agents maintain conversation context:
+
+```python
+# First turn
+result = agent.invoke({
+    "messages": [{"role": "user", "content": "What is 5+3?"}]
+})
+
+# Continue the conversation
+messages = result["messages"]
+messages.append({"role": "user", "content": "And what is that times 2?"})
+
+result = agent.invoke({"messages": messages})
+```
+
+### Examples
+
+See the [`examples/`](examples/) directory for complete working examples:
+- [`simple_agent.py`](examples/simple_agent.py) - Basic agent creation and usage
+
+### What's Next?
+
+**Phase 3** will add MCP (Model Context Protocol) integration:
+- Declarative MCP server configuration
+- Automatic tool loading with per-user authentication
+- No manual tool wrapper code required
+- Multi-server support
+
+The example at the top of this README will work in Phase 3!
 
 ## Motivation
 
@@ -115,12 +225,14 @@ Graphton abstracts these patterns into a declarative framework, making agent cre
 - [x] CI/CD setup
 - [x] Basic import tests
 
-### Phase 2: Agent Factory (Next)
-- [ ] `create_deep_agent()` function
-- [ ] Model name parsing
-- [ ] System prompt handling
-- [ ] State schema configuration
-- [ ] Basic agent creation without MCP tools
+### Phase 2: Agent Factory ✅ (Complete)
+- [x] `create_deep_agent()` function
+- [x] Model name parsing (Anthropic and OpenAI)
+- [x] System prompt handling
+- [x] State schema configuration
+- [x] Basic agent creation without MCP tools
+- [x] Parameter overrides (max_tokens, temperature)
+- [x] Comprehensive unit and integration tests
 
 ### Phase 3: MCP Integration
 - [ ] MCP server configuration parser
