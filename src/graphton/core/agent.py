@@ -16,6 +16,7 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import ValidationError
 
 from graphton.core.models import parse_model_string
+from graphton.core.tool_wrappers import create_lazy_tool_wrapper, create_tool_wrapper
 
 
 def create_deep_agent(
@@ -218,12 +219,17 @@ def create_deep_agent(
         )
         
         # Generate tool wrappers for all requested tools
-        # Note: We create wrappers during graph creation, but they won't
-        # actually load/invoke tools until middleware runs during execution
+        # Use lazy wrappers for dynamic mode (template variables present)
+        # Use eager wrappers for static mode (tools already loaded)
         mcp_tool_wrappers: list[BaseTool] = []
         for server_name, tool_names in mcp_tools.items():
             for tool_name in tool_names:
-                wrapper = create_tool_wrapper(tool_name, mcp_middleware)
+                if mcp_middleware.is_dynamic:
+                    # Dynamic mode: Use lazy wrapper (tools loaded at invocation)
+                    wrapper = create_lazy_tool_wrapper(tool_name, mcp_middleware)
+                else:
+                    # Static mode: Use eager wrapper (tools already loaded)
+                    wrapper = create_tool_wrapper(tool_name, mcp_middleware)
                 mcp_tool_wrappers.append(wrapper)  # type: ignore[arg-type]
         
         # Add MCP tools and middleware to the agent

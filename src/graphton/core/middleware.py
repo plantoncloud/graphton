@@ -20,6 +20,7 @@ import asyncio
 import logging
 from typing import Any
 
+from langchain.agents.middleware.types import AgentMiddleware
 from langchain_core.runnables import RunnableConfig
 
 from graphton.core.mcp_manager import load_mcp_tools
@@ -28,7 +29,7 @@ from graphton.core.template import extract_template_vars, substitute_templates
 logger = logging.getLogger(__name__)
 
 
-class McpToolsLoader:
+class McpToolsLoader(AgentMiddleware):
     """Middleware to load MCP tools with universal authentication support.
     
     This middleware automatically detects static vs dynamic configurations:
