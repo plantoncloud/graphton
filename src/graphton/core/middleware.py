@@ -209,16 +209,17 @@ class McpToolsLoader(AgentMiddleware):
                 )
             
             # Extract config from runtime object
-            if hasattr(runtime, 'config'):
-                # Production: Runtime object - access config via runtime.config
-                config = runtime.config
-                if not config:
+            if hasattr(runtime, 'context'):
+                # Production: Runtime object - runtime.context IS the configurable dict
+                # The framework maps config["configurable"] directly to runtime.context
+                configurable = runtime.context or {}
+                if not configurable:
                     raise ValueError(
                         f"Dynamic MCP configuration requires template variables: {sorted(self.template_vars)}. "
                         f"Pass config={{'configurable': {{{', '.join(f'{v!r}: value' for v in sorted(self.template_vars))}}}}} "
                         "when invoking agent."
                     )
-                configurable = config.get("configurable", {})
+
             elif isinstance(runtime, dict):
                 # Tests: plain dict with 'configurable' key (for test compatibility)
                 config = runtime
