@@ -15,8 +15,6 @@ from typing import Any
 
 from langchain_core.tools import tool
 
-from graphton.core.context import get_user_token
-
 logger = logging.getLogger(__name__)
 
 
@@ -27,10 +25,9 @@ def create_tool_wrapper(
     """Create a wrapper function for an MCP tool.
     
     The generated wrapper:
-    1. Validates user token is available in context
-    2. Gets the actual MCP tool from middleware cache
-    3. Invokes the tool with provided arguments
-    4. Returns the tool result
+    1. Gets the actual MCP tool from middleware cache
+    2. Invokes the tool with provided arguments
+    3. Returns the tool result
     
     This eliminates the need to manually write wrapper functions for each MCP tool.
     
@@ -69,19 +66,11 @@ def create_tool_wrapper(
         """Auto-generated wrapper for MCP tool.
         
         This wrapper:
-        - Validates user token is in context
         - Gets the actual MCP tool from middleware
         - Invokes the tool with arguments
         - Returns the result
         """
-        # Validate token is available (will raise if not)
-        # This ensures tool calls only happen when properly authenticated
-        try:
-            get_user_token()  # Validate token exists
-            logger.debug(f"Invoking MCP tool '{tool_name}' with user token")
-        except ValueError as e:
-            logger.error(f"Token validation failed for tool '{tool_name}': {e}")
-            raise
+        logger.debug(f"Invoking MCP tool '{tool_name}'")
         
         # Get actual MCP tool from middleware cache
         try:
@@ -145,9 +134,8 @@ def create_lazy_tool_wrapper(
     
     The generated wrapper:
     1. On first invocation: Gets the actual tool from middleware (now loaded)
-    2. Validates user token is available
-    3. Invokes the tool with provided arguments
-    4. Returns the tool result
+    2. Invokes the tool with provided arguments
+    3. Returns the tool result
     
     Args:
         tool_name: Name of the MCP tool to wrap
@@ -179,17 +167,10 @@ def create_lazy_tool_wrapper(
         
         This wrapper:
         - Resolves the actual tool on first invocation (after middleware loads it)
-        - Validates user token is in context
         - Invokes the tool with arguments
         - Returns the result
         """
-        # Validate token is available (will raise if not)
-        try:
-            get_user_token()  # Validate token exists
-            logger.debug(f"Invoking MCP tool '{tool_name}' with user token (lazy mode)")
-        except ValueError as e:
-            logger.error(f"Token validation failed for tool '{tool_name}': {e}")
-            raise
+        logger.debug(f"Invoking MCP tool '{tool_name}' (lazy mode)")
         
         # NOW get the actual MCP tool from middleware cache
         # At this point, middleware.before_agent() has run and loaded tools
