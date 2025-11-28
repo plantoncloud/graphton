@@ -163,7 +163,7 @@ class McpToolsLoader(AgentMiddleware):
     def before_agent(
         self,
         state: AgentState[Any],
-        config: Runtime[None] | dict[str, Any],
+        runtime: Runtime[None] | dict[str, Any],
     ) -> dict[str, Any] | None:
         """Load MCP tools before agent execution.
         
@@ -174,7 +174,7 @@ class McpToolsLoader(AgentMiddleware):
         
         Args:
             state: Current agent state (unused but required by middleware protocol)
-            config: Runtime object (production) or dict (tests) containing template values
+            runtime: Runtime object (production) or dict (tests) containing template values
             
         Returns:
             None (tools are cached in instance for wrapper access)
@@ -201,32 +201,42 @@ class McpToolsLoader(AgentMiddleware):
         try:
             # Extract template values from runtime context
             # Handle both Runtime objects (production) and plain dicts (tests)
-            if not config:
+            if not runtime:
                 raise ValueError(
                     f"Dynamic MCP configuration requires template variables: {sorted(self.template_vars)}. "
                     f"Pass config={{'configurable': {{{', '.join(f'{v!r}: value' for v in sorted(self.template_vars))}}}}} "
                     "when invoking agent."
                 )
             
-            # Check if config is a Runtime object with context attribute
-            if hasattr(config, 'context'):
-                # Production: Runtime object
-                if not config.context:
+            # Extract config from runtime object
+            if hasattr(runtime, 'config'):
+                # Production: Runtime object - access config via runtime.config
+                config = runtime.config
+                if not config:
                     raise ValueError(
                         f"Dynamic MCP configuration requires template variables: {sorted(self.template_vars)}. "
                         f"Pass config={{'configurable': {{{', '.join(f'{v!r}: value' for v in sorted(self.template_vars))}}}}} "
                         "when invoking agent."
                     )
-                configurable = config.context
-            else:
-                # Tests: plain dict with 'configurable' key
-                if not isinstance(config, dict) or "configurable" not in config:
+                configurable = config.get("configurable", {})
+            elif isinstance(runtime, dict):
+                # Tests: plain dict with 'configurable' key (for test compatibility)
+                config = runtime
+                if "configurable" not in config:
                     raise ValueError(
                         f"Dynamic MCP configuration requires template variables: {sorted(self.template_vars)}. "
                         f"Pass config={{'configurable': {{{', '.join(f'{v!r}: value' for v in sorted(self.template_vars))}}}}} "
                         "when invoking agent."
                     )
                 configurable = config["configurable"]
+            else:
+                # Unknown type
+                raise ValueError(
+                    f"Dynamic MCP configuration requires template variables: {sorted(self.template_vars)}. "
+                    f"Unexpected runtime type: {type(runtime)}. "
+                    f"Pass config={{'configurable': {{{', '.join(f'{v!r}: value' for v in sorted(self.template_vars))}}}}} "
+                    "when invoking agent."
+                )
             
             # Validate all required template variables are provided
             provided_vars = set(configurable.keys())
@@ -298,7 +308,7 @@ class McpToolsLoader(AgentMiddleware):
     def after_agent(
         self,
         state: AgentState[Any],
-        config: Runtime[None] | dict[str, Any],
+        runtime: Runtime[None] | dict[str, Any],
     ) -> dict[str, Any] | None:
         """Cleanup after agent execution.
         
@@ -309,7 +319,7 @@ class McpToolsLoader(AgentMiddleware):
         
         Args:
             state: Current agent state (unused)
-            config: Runtime object (production) or dict (tests) - unused
+            runtime: Runtime object (production) or dict (tests) - unused
             
         Returns:
             None
