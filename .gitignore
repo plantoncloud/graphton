@@ -78,6 +78,7 @@ site/
 
 # Cursor workspace files
 .cursor/workspace/
+_cursor/
 
 # Project-specific
 cython_debug/
