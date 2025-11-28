@@ -84,9 +84,29 @@ def create_tool_wrapper(
         
         # Invoke the actual MCP tool with provided arguments
         try:
-            logger.debug(f"Calling MCP tool '{tool_name}' with args: {kwargs}")
+            # Phase 1 Diagnostic Logging: Capture exact argument structure
+            logger.debug(f"=== MCP Tool Invocation Diagnostics for '{tool_name}' ===")
+            logger.debug(f"kwargs type: {type(kwargs)}")
+            logger.debug(f"kwargs value: {kwargs}")
+            logger.debug(f"kwargs keys: {list(kwargs.keys()) if isinstance(kwargs, dict) else 'N/A - not a dict'}")
+            
+            # Inspect the MCP tool's expected schema
+            if hasattr(mcp_tool, 'args_schema'):
+                logger.debug(f"Tool args_schema: {mcp_tool.args_schema}")
+            if hasattr(mcp_tool, 'name'):
+                logger.debug(f"Tool name from object: {mcp_tool.name}")
+            
+            # Check for potential double-nesting indicators
+            if isinstance(kwargs, dict):
+                if len(kwargs) == 1 and 'input' in kwargs:
+                    logger.warning(f"⚠️  Potential double-nesting detected: kwargs has single 'input' key")
+                    logger.debug(f"Value inside 'input': {kwargs.get('input')}")
+            
+            logger.debug(f"Calling mcp_tool.ainvoke() with: {kwargs}")
             result = await mcp_tool.ainvoke(kwargs)
-            logger.debug(f"MCP tool '{tool_name}' returned successfully")
+            logger.debug(f"✅ MCP tool '{tool_name}' returned successfully")
+            logger.debug(f"Result type: {type(result)}")
+            logger.debug(f"=== End Diagnostics for '{tool_name}' ===")
             return result
         except Exception as e:
             logger.error(
@@ -188,9 +208,29 @@ def create_lazy_tool_wrapper(
         
         # Invoke the actual MCP tool with provided arguments
         try:
-            logger.debug(f"Calling MCP tool '{tool_name}' with args: {kwargs} (lazy mode)")
+            # Phase 1 Diagnostic Logging: Capture exact argument structure (lazy mode)
+            logger.debug(f"=== MCP Tool Invocation Diagnostics for '{tool_name}' (LAZY MODE) ===")
+            logger.debug(f"kwargs type: {type(kwargs)}")
+            logger.debug(f"kwargs value: {kwargs}")
+            logger.debug(f"kwargs keys: {list(kwargs.keys()) if isinstance(kwargs, dict) else 'N/A - not a dict'}")
+            
+            # Inspect the MCP tool's expected schema
+            if hasattr(mcp_tool, 'args_schema'):
+                logger.debug(f"Tool args_schema: {mcp_tool.args_schema}")
+            if hasattr(mcp_tool, 'name'):
+                logger.debug(f"Tool name from object: {mcp_tool.name}")
+            
+            # Check for potential double-nesting indicators
+            if isinstance(kwargs, dict):
+                if len(kwargs) == 1 and 'input' in kwargs:
+                    logger.warning(f"⚠️  Potential double-nesting detected: kwargs has single 'input' key")
+                    logger.debug(f"Value inside 'input': {kwargs.get('input')}")
+            
+            logger.debug(f"Calling mcp_tool.ainvoke() with: {kwargs}")
             result = await mcp_tool.ainvoke(kwargs)
-            logger.debug(f"MCP tool '{tool_name}' returned successfully (lazy mode)")
+            logger.debug(f"✅ MCP tool '{tool_name}' returned successfully (lazy mode)")
+            logger.debug(f"Result type: {type(result)}")
+            logger.debug(f"=== End Diagnostics for '{tool_name}' (LAZY MODE) ===")
             return result
         except Exception as e:
             logger.error(
