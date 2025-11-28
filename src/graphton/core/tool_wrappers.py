@@ -62,7 +62,7 @@ def create_tool_wrapper(
     
     # Create the wrapper function
     @tool
-    def wrapper(**kwargs: Any) -> Any:  # noqa: ANN401
+    async def wrapper(**kwargs: Any) -> Any:  # noqa: ANN401
         """Auto-generated wrapper for MCP tool.
         
         This wrapper:
@@ -85,7 +85,7 @@ def create_tool_wrapper(
         # Invoke the actual MCP tool with provided arguments
         try:
             logger.debug(f"Calling MCP tool '{tool_name}' with args: {kwargs}")
-            result = mcp_tool.invoke(kwargs)
+            result = await mcp_tool.ainvoke(kwargs)
             logger.debug(f"MCP tool '{tool_name}' returned successfully")
             return result
         except Exception as e:
@@ -162,7 +162,7 @@ def create_lazy_tool_wrapper(
     # Note: We do NOT access middleware_instance.get_tool() here
     # That would fail in dynamic mode since tools aren't loaded yet
     @tool
-    def lazy_wrapper(**kwargs: Any) -> Any:  # noqa: ANN401
+    async def lazy_wrapper(**kwargs: Any) -> Any:  # noqa: ANN401
         """Auto-generated lazy wrapper for MCP tool (dynamic mode).
         
         This wrapper:
@@ -189,7 +189,7 @@ def create_lazy_tool_wrapper(
         # Invoke the actual MCP tool with provided arguments
         try:
             logger.debug(f"Calling MCP tool '{tool_name}' with args: {kwargs} (lazy mode)")
-            result = mcp_tool.invoke(kwargs)
+            result = await mcp_tool.ainvoke(kwargs)
             logger.debug(f"MCP tool '{tool_name}' returned successfully (lazy mode)")
             return result
         except Exception as e:
