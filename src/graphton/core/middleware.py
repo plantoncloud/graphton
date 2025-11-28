@@ -160,17 +160,20 @@ class McpToolsLoader(AgentMiddleware):
                 "Check MCP server connectivity and configuration."
             ) from e
     
-    def before_agent(
+    async def abefore_agent(
         self,
         state: AgentState[Any],
         runtime: Runtime[None] | dict[str, Any],
     ) -> dict[str, Any] | None:
-        """Load MCP tools before agent execution.
+        """Load MCP tools before agent execution (async).
         
         Behavior depends on configuration mode:
         
         - **Static mode**: Tools already loaded at initialization, returns immediately
         - **Dynamic mode**: Substitutes templates from runtime context and loads tools
+        
+        This is the async version that directly awaits MCP tool loading, avoiding
+        the event loop deadlock that occurred with run_coroutine_threadsafe.
         
         Args:
             state: Current agent state (unused but required by middleware protocol)
@@ -262,16 +265,9 @@ class McpToolsLoader(AgentMiddleware):
             
             logger.debug(f"Template substitution complete for {len(substituted_servers)} server(s)")
             
-            # Load MCP tools asynchronously with substituted config
-            # We're in a sync middleware context but need async tool loading
-            loop = asyncio.get_event_loop()
-            future = asyncio.run_coroutine_threadsafe(
-                load_mcp_tools(substituted_servers, self.tool_filter),
-                loop
-            )
-            
-            # Wait for tools to load (with timeout)
-            tools = future.result(timeout=30)
+            # Load MCP tools asynchronously - direct await, no deadlock!
+            # This runs naturally in the async context without blocking
+            tools = await load_mcp_tools(substituted_servers, self.tool_filter)
             
             if not tools:
                 raise RuntimeError(
@@ -293,12 +289,6 @@ class McpToolsLoader(AgentMiddleware):
         except ValueError as e:
             logger.error(f"Configuration error: {e}")
             raise
-        except TimeoutError as e:
-            logger.error("Timeout loading MCP tools after 30 seconds")
-            raise RuntimeError(
-                "MCP tool loading timed out after 30 seconds. "
-                "Check MCP server connectivity."
-            ) from e
         except Exception as e:
             logger.error(f"Failed to load MCP tools: {e}", exc_info=True)
             raise RuntimeError(
@@ -306,12 +296,12 @@ class McpToolsLoader(AgentMiddleware):
                 "Check MCP server connectivity and authentication."
             ) from e
     
-    def after_agent(
+    async def aafter_agent(
         self,
         state: AgentState[Any],
         runtime: Runtime[None] | dict[str, Any],
     ) -> dict[str, Any] | None:
-        """Cleanup after agent execution.
+        """Cleanup after agent execution (async).
         
         For dynamic configs, clears the tools cache to ensure fresh loading
         on next invocation (in case tokens change).
