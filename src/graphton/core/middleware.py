@@ -20,8 +20,8 @@ import asyncio
 import logging
 from typing import Any
 
-from langchain.agents.middleware.types import AgentMiddleware
-from langchain_core.runnables import RunnableConfig
+from langchain.agents.middleware.types import AgentMiddleware, AgentState
+from langgraph.runtime import Runtime
 
 from graphton.core.mcp_manager import load_mcp_tools
 from graphton.core.template import extract_template_vars, substitute_templates
@@ -162,25 +162,25 @@ class McpToolsLoader(AgentMiddleware):
     
     def before_agent(
         self,
-        state: dict[str, Any],
-        config: RunnableConfig,
+        state: AgentState[Any],
+        runtime: Runtime[None],
     ) -> dict[str, Any] | None:
         """Load MCP tools before agent execution.
         
         Behavior depends on configuration mode:
         
         - **Static mode**: Tools already loaded at initialization, returns immediately
-        - **Dynamic mode**: Substitutes templates from config['configurable'] and loads tools
+        - **Dynamic mode**: Substitutes templates from runtime context and loads tools
         
         Args:
             state: Current agent state (unused but required by middleware protocol)
-            config: Runnable config containing template values in configurable dict
+            runtime: Runtime object containing template values in context
             
         Returns:
             None (tools are cached in instance for wrapper access)
             
         Raises:
-            ValueError: If config is missing or required template variables not provided
+            ValueError: If runtime context is missing or required template variables not provided
             RuntimeError: If MCP tools fail to load
 
         """
@@ -199,15 +199,15 @@ class McpToolsLoader(AgentMiddleware):
         logger.info("Loading MCP tools with dynamic authentication...")
         
         try:
-            # Extract template values from config parameter
-            if not config or "configurable" not in config:
+            # Extract template values from runtime context
+            if not runtime or not runtime.context:
                 raise ValueError(
                     f"Dynamic MCP configuration requires template variables: {sorted(self.template_vars)}. "
                     f"Pass config={{'configurable': {{{', '.join(f'{v!r}: value' for v in sorted(self.template_vars))}}}}} "
                     "when invoking agent."
                 )
             
-            configurable = config["configurable"]
+            configurable = runtime.context
             
             # Validate all required template variables are provided
             provided_vars = set(configurable.keys())
@@ -278,8 +278,8 @@ class McpToolsLoader(AgentMiddleware):
     
     def after_agent(
         self,
-        state: dict[str, Any],
-        config: RunnableConfig,
+        state: AgentState[Any],
+        runtime: Runtime[None],
     ) -> dict[str, Any] | None:
         """Cleanup after agent execution.
         
@@ -290,7 +290,7 @@ class McpToolsLoader(AgentMiddleware):
         
         Args:
             state: Current agent state (unused)
-            config: Runnable config (unused)
+            runtime: Runtime object (unused)
             
         Returns:
             None
