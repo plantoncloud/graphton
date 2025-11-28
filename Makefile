@@ -8,7 +8,7 @@ help:
 	@echo "  make typecheck     - Run mypy type checker"
 	@echo "  make build         - Run all checks (lint + typecheck + test)"
 	@echo "  make clean         - Clean cache files"
-	@echo "  make release       - Create and push release tag (usage: make release version=x.y.z)"
+	@echo "  make release       - Create and push release tag (usage: make release version=vx.y.z)"
 
 deps:
 	@echo "Installing dependencies with Poetry..."
@@ -40,12 +40,12 @@ clean:
 
 release: build
 	@if [ -z "$(version)" ]; then \
-		echo "Error: version parameter is required. Usage: make release version=x.y.z"; \
+		echo "Error: version parameter is required. Usage: make release version=vx.y.z"; \
 		exit 1; \
 	fi
-	@echo "Creating release tag v$(version)..."
-	git tag -a "v$(version)" -m "Release v$(version)"
-	@echo "Pushing tag v$(version) to origin..."
-	git push origin "v$(version)"
-	@echo "✅ Release v$(version) created and pushed successfully!"
+	@echo "Creating release tag $(version)..."
+	git tag -a "$(version)" -m "Release $(version)"
+	@echo "Pushing tag $(version) to origin..."
+	git push origin "$(version)"
+	@echo "✅ Release $(version) created and pushed successfully!"
 
