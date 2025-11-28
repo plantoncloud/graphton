@@ -161,14 +161,13 @@ class TestRemoteDeploymentSimulation:
             }
         }
         
-        middleware = McpToolsLoader(
+        McpToolsLoader(
             servers=servers,
             tool_filter={"test-server": ["test_tool"]}
         )
         
         # Token is empty string - should still be accepted since it's provided
         # The substitution will happen, resulting in "Bearer " header
-        config = {"configurable": {"USER_TOKEN": ""}}
         
         # This should not raise an error at the middleware level
         # Empty tokens are technically valid strings

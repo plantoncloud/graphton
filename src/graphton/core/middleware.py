@@ -88,6 +88,7 @@ class McpToolsLoader:
             servers: Dictionary of server_name -> raw MCP server config.
                 Configs can contain template variables like {{VAR_NAME}}.
             tool_filter: Dictionary of server_name -> list of tool names to load.
+
         """
         self.servers = servers
         self.tool_filter = tool_filter
@@ -180,6 +181,7 @@ class McpToolsLoader:
         Raises:
             ValueError: If config is missing or required template variables not provided
             RuntimeError: If MCP tools fail to load
+
         """
         # Static mode: tools already loaded at initialization
         if not self.is_dynamic:
@@ -291,6 +293,7 @@ class McpToolsLoader:
             
         Returns:
             None
+
         """
         if self.is_dynamic:
             # Clear cache for dynamic configs to ensure fresh auth on next request
@@ -319,6 +322,7 @@ class McpToolsLoader:
             
         Example:
             >>> tool = middleware.get_tool("list_organizations")
+
         """
         if not self._tools_loaded:
             mode = "dynamic" if self.is_dynamic else "static"

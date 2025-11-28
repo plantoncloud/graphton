@@ -51,6 +51,7 @@ class AgentConfig(BaseModel):
         ...         "planton-cloud": ["list_organizations", "create_cloud_resource"]
         ...     }
         ... )
+
     """
     
     model: str | BaseChatModel
@@ -108,6 +109,7 @@ class AgentConfig(BaseModel):
             
         Raises:
             ValueError: If configuration is invalid
+
         """
         if v is None:
             return v

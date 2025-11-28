@@ -19,10 +19,10 @@ Example:
     >>> result = substitute_templates(config, values)
     >>> result["headers"]["Authorization"]
     'Bearer token123'
+
 """
 
 import re
-from copy import deepcopy
 from typing import Any
 
 # Regex pattern to match {{VAR_NAME}} with optional whitespace
@@ -51,6 +51,7 @@ def extract_template_vars(config: Any) -> set[str]:  # noqa: ANN401
         ... }
         >>> extract_template_vars(config)
         {'BASE_URL', 'TOKEN'}
+
     """
     variables: set[str] = set()
     
@@ -88,6 +89,7 @@ def has_templates(config: Any) -> bool:  # noqa: ANN401
         False
         >>> has_templates({"url": "{{BASE_URL}}/api"})
         True
+
     """
     return bool(extract_template_vars(config))
 
@@ -119,6 +121,7 @@ def substitute_templates(config: Any, values: dict[str, str]) -> Any:  # noqa: A
         'https://api.example.com/api'
         >>> result["headers"]["Authorization"]
         'Bearer abc123'
+
     """
     # Check for missing variables upfront
     required_vars = extract_template_vars(config)
@@ -147,6 +150,7 @@ def _substitute_recursive(config: Any, values: dict[str, str]) -> Any:  # noqa: 
         
     Returns:
         New config value with templates substituted
+
     """
     if isinstance(config, dict):
         # Create new dict with substituted values
@@ -192,6 +196,7 @@ def validate_template_syntax(config: Any) -> list[str]:  # noqa: ANN401
         >>> errors = validate_template_syntax(config)
         >>> len(errors)
         0
+
     """
     errors: list[str] = []
     

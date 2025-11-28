@@ -25,7 +25,6 @@ class TestStaticVsDynamicDetection:
                 }
             }
         }
-        tool_filter = {"static-server": ["tool1", "tool2"]}
         
         # Create middleware (don't initialize fully - we're just testing detection)
         # Note: This will try to load static tools, which will fail without a real server
@@ -47,7 +46,6 @@ class TestStaticVsDynamicDetection:
                 }
             }
         }
-        tool_filter = {"dynamic-server": ["tool1", "tool2"]}
         
         template_vars = extract_template_vars(servers)
         is_dynamic = bool(template_vars)
@@ -270,7 +268,7 @@ class TestStaticConfigBehavior:
         
         # Will fail to load tools, but we can check the flag
         try:
-            middleware = McpToolsLoader(servers, tool_filter)
+            McpToolsLoader(servers, tool_filter)
         except RuntimeError:
             # Expected
             pass
