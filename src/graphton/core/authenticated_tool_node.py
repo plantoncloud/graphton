@@ -53,6 +53,7 @@ class AuthenticatedMcpToolNode:
         >>> # Later, in graph execution:
         >>> # The node extracts USER_TOKEN from config and creates authenticated client
         >>> result = await tool_node(state, config={"configurable": {"USER_TOKEN": "..."}})
+
     """
     
     def __init__(
@@ -66,17 +67,21 @@ class AuthenticatedMcpToolNode:
         Args:
             server_configs: Dict mapping server names to base config dicts.
                 Should NOT include authentication headers - those are added dynamically.
-                Example:
-                {
-                    "planton-cloud": {
-                        "url": "https://mcp.planton.ai/",
-                        "transport": "streamable_http"
+
+                Example::
+
+                    {
+                        "planton-cloud": {
+                            "url": "https://mcp.planton.ai/",
+                            "transport": "streamable_http"
+                        }
                     }
-                }
+
             auth_header_template: Template for Authorization header value.
                 Default: "Bearer {token}" - {token} is replaced with user's token.
             token_config_key: Key name in config["configurable"] for user token.
                 Default: "USER_TOKEN"
+
         """
         self.base_configs = server_configs
         self.auth_header_template = auth_header_template
@@ -106,6 +111,7 @@ class AuthenticatedMcpToolNode:
         Raises:
             ValueError: If auth token not found in config
             RuntimeError: If MCP client creation or tool execution fails
+
         """
         # --------------------------------------------------------
         # 1. Identity Extraction & Validation
@@ -267,6 +273,7 @@ class AuthenticatedMcpToolNode:
             
         Returns:
             Dict with "messages" containing ToolMessage errors for each tool call
+
         """
         messages = state.get("messages", [])
         if not messages:
