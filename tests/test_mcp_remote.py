@@ -61,7 +61,7 @@ class TestRemoteDeploymentSimulation:
                 # This should NOT raise "Runtime context not available"
                 # It should extract token from config parameter instead
                 try:
-                    result = middleware.before_agent(state={}, config=config)
+                    result = middleware.before_agent(state={}, runtime=config)
                     
                     # Should return None (tools cached in middleware)
                     assert result is None
@@ -101,7 +101,7 @@ class TestRemoteDeploymentSimulation:
         
         # Config is None
         with pytest.raises(ValueError, match="requires template variables"):
-            middleware.before_agent(state={}, config=None)  # type: ignore[arg-type]
+            middleware.before_agent(state={}, runtime=None)  # type: ignore[arg-type]
     
     def test_missing_configurable_raises_clear_error(self) -> None:
         """Test clear error when configurable dict is missing."""
@@ -124,7 +124,7 @@ class TestRemoteDeploymentSimulation:
         config = {}
         
         with pytest.raises(ValueError, match="requires template variables"):
-            middleware.before_agent(state={}, config=config)  # type: ignore[arg-type]
+            middleware.before_agent(state={}, runtime=config)  # type: ignore[arg-type]
     
     def test_missing_token_in_config(self) -> None:
         """Test clear error when token is missing from config."""
@@ -147,7 +147,7 @@ class TestRemoteDeploymentSimulation:
         config = {"configurable": {}}
         
         with pytest.raises(ValueError, match="Missing required template variables"):
-            middleware.before_agent(state={}, config=config)  # type: ignore[arg-type]
+            middleware.before_agent(state={}, runtime=config)  # type: ignore[arg-type]
     
     def test_empty_token_raises_error(self) -> None:
         """Test that empty token string is rejected."""
@@ -205,11 +205,11 @@ class TestRemoteDeploymentSimulation:
                 mock_run.return_value = mock_future
                 
                 # First call - should load tools
-                middleware.before_agent(state={}, config=config)
+                middleware.before_agent(state={}, runtime=config)
                 assert mock_load.call_count == 1
                 
                 # Second call - should skip loading
-                middleware.before_agent(state={}, config=config)
+                middleware.before_agent(state={}, runtime=config)
                 # Still only called once
                 assert mock_load.call_count == 1
     
@@ -243,7 +243,7 @@ class TestRemoteDeploymentSimulation:
                 mock_run.return_value = mock_future
                 
                 # Load tools
-                middleware.before_agent(state={}, config=config)
+                middleware.before_agent(state={}, runtime=config)
                 
                 # Should be able to get tool from cache
                 cached_tool = middleware.get_tool("test_tool")
@@ -299,7 +299,7 @@ class TestRemoteDeploymentSimulation:
                 mock_future.result.return_value = [mock_tool]
                 mock_run.return_value = mock_future
                 
-                middleware.before_agent(state={}, config=config)
+                middleware.before_agent(state={}, runtime=config)
                 
                 # Try to get non-existent tool
                 with pytest.raises(ValueError, match="not found in cache"):
