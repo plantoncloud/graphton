@@ -96,14 +96,20 @@ def create_tool_wrapper(
             if hasattr(mcp_tool, 'name'):
                 logger.info(f"Tool name from object: {mcp_tool.name}")
             
-            # Check for potential double-nesting indicators
+            # Check for double-nesting and unwrap if needed (FIX for argument marshalling)
+            actual_args = kwargs
             if isinstance(kwargs, dict):
                 if len(kwargs) == 1 and 'input' in kwargs:
-                    logger.warning("⚠️  Potential double-nesting detected: kwargs has single 'input' key")
+                    logger.warning("⚠️  Double-nesting detected: unwrapping 'input' key")
                     logger.info(f"Value inside 'input': {kwargs.get('input')}")
+                    actual_args = kwargs['input']
+                elif len(kwargs) == 1 and 'kwargs' in kwargs:
+                    logger.warning("⚠️  Double-nesting detected: unwrapping 'kwargs' key")
+                    logger.info(f"Value inside 'kwargs': {kwargs.get('kwargs')}")
+                    actual_args = kwargs['kwargs']
             
-            logger.info(f"Calling mcp_tool.ainvoke() with: {kwargs}")
-            result = await mcp_tool.ainvoke(kwargs)
+            logger.info(f"Calling mcp_tool.ainvoke() with (after unwrapping): {actual_args}")
+            result = await mcp_tool.ainvoke(actual_args)
             logger.info(f"✅ MCP tool '{tool_name}' returned successfully")
             logger.info(f"Result type: {type(result)}")
             logger.info(f"=== End Diagnostics for '{tool_name}' ===")
@@ -209,7 +215,7 @@ def create_lazy_tool_wrapper(
         # Invoke the actual MCP tool with provided arguments
         try:
             # Phase 1 Diagnostic Logging: Capture exact argument structure (lazy mode)
-            logger.debug(f"=== MCP Tool Invocation Diagnostics for '{tool_name}' (LAZY MODE) ===")
+            logger.info(f"=== MCP Tool Invocation Diagnostics for '{tool_name}' (LAZY MODE) ===")
             logger.info(f"kwargs type: {type(kwargs)}")
             logger.info(f"kwargs value: {kwargs}")
             logger.info(f"kwargs keys: {list(kwargs.keys()) if isinstance(kwargs, dict) else 'N/A - not a dict'}")
@@ -220,17 +226,23 @@ def create_lazy_tool_wrapper(
             if hasattr(mcp_tool, 'name'):
                 logger.info(f"Tool name from object: {mcp_tool.name}")
             
-            # Check for potential double-nesting indicators
+            # Check for double-nesting and unwrap if needed (FIX for argument marshalling)
+            actual_args = kwargs
             if isinstance(kwargs, dict):
                 if len(kwargs) == 1 and 'input' in kwargs:
-                    logger.warning("⚠️  Potential double-nesting detected: kwargs has single 'input' key")
+                    logger.warning("⚠️  Double-nesting detected: unwrapping 'input' key")
                     logger.info(f"Value inside 'input': {kwargs.get('input')}")
+                    actual_args = kwargs['input']
+                elif len(kwargs) == 1 and 'kwargs' in kwargs:
+                    logger.warning("⚠️  Double-nesting detected: unwrapping 'kwargs' key")
+                    logger.info(f"Value inside 'kwargs': {kwargs.get('kwargs')}")
+                    actual_args = kwargs['kwargs']
             
-            logger.debug(f"Calling mcp_tool.ainvoke() with: {kwargs}")
-            result = await mcp_tool.ainvoke(kwargs)
-            logger.debug(f"✅ MCP tool '{tool_name}' returned successfully (lazy mode)")
-            logger.debug(f"Result type: {type(result)}")
-            logger.debug(f"=== End Diagnostics for '{tool_name}' (LAZY MODE) ===")
+            logger.info(f"Calling mcp_tool.ainvoke() with (after unwrapping): {actual_args}")
+            result = await mcp_tool.ainvoke(actual_args)
+            logger.info(f"✅ MCP tool '{tool_name}' returned successfully (lazy mode)")
+            logger.info(f"Result type: {type(result)}")
+            logger.info(f"=== End Diagnostics for '{tool_name}' (LAZY MODE) ===")
             return result
         except Exception as e:
             logger.error(
