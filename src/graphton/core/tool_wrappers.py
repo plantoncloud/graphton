@@ -99,7 +99,7 @@ def create_tool_wrapper(
             # Check for potential double-nesting indicators
             if isinstance(kwargs, dict):
                 if len(kwargs) == 1 and 'input' in kwargs:
-                    logger.warning(f"⚠️  Potential double-nesting detected: kwargs has single 'input' key")
+                    logger.warning("⚠️  Potential double-nesting detected: kwargs has single 'input' key")
                     logger.debug(f"Value inside 'input': {kwargs.get('input')}")
             
             logger.debug(f"Calling mcp_tool.ainvoke() with: {kwargs}")
@@ -223,7 +223,7 @@ def create_lazy_tool_wrapper(
             # Check for potential double-nesting indicators
             if isinstance(kwargs, dict):
                 if len(kwargs) == 1 and 'input' in kwargs:
-                    logger.warning(f"⚠️  Potential double-nesting detected: kwargs has single 'input' key")
+                    logger.warning("⚠️  Potential double-nesting detected: kwargs has single 'input' key")
                     logger.debug(f"Value inside 'input': {kwargs.get('input')}")
             
             logger.debug(f"Calling mcp_tool.ainvoke() with: {kwargs}")
