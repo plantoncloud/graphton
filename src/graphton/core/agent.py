@@ -219,16 +219,21 @@ def create_deep_agent(
         )
         
         # Generate tool wrappers for all requested tools
-        # Use lazy wrappers for dynamic mode (template variables present)
-        # Use eager wrappers for static mode (tools already loaded)
+        # Use lazy wrappers if:
+        # 1. Dynamic mode (template variables present - need config values), OR
+        # 2. Deferred loading (tools not loaded yet due to async context at init)
+        # Use eager wrappers only when tools are guaranteed to be loaded
         mcp_tool_wrappers: list[BaseTool] = []
         for server_name, tool_names in mcp_tools.items():
             for tool_name in tool_names:
-                if mcp_middleware.is_dynamic:
-                    # Dynamic mode: Use lazy wrapper (tools loaded at invocation)
+                # Check if we should use lazy wrappers
+                use_lazy = mcp_middleware.is_dynamic or mcp_middleware._deferred_loading
+                
+                if use_lazy:
+                    # Lazy mode: Tools will be loaded at invocation time
                     wrapper = create_lazy_tool_wrapper(tool_name, mcp_middleware)
                 else:
-                    # Static mode: Use eager wrapper (tools already loaded)
+                    # Eager mode: Tools already loaded, can access immediately
                     wrapper = create_tool_wrapper(tool_name, mcp_middleware)
                 mcp_tool_wrappers.append(wrapper)  # type: ignore[arg-type]
         
