@@ -15,6 +15,7 @@ from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import ValidationError
 
+from graphton.core.loop_detection import LoopDetectionMiddleware
 from graphton.core.models import parse_model_string
 from graphton.core.prompt_enhancement import enhance_user_instructions
 from graphton.core.tool_wrappers import create_lazy_tool_wrapper
@@ -43,6 +44,7 @@ def create_deep_agent(
     - Automatically applying recursion limits
     - Supporting both string-based and instance-based model configuration
     - Auto-loading MCP tools with per-user authentication (Phase 3)
+    - Auto-injecting loop detection to prevent infinite loops
     
     Args:
         model: Model name string (e.g., "claude-sonnet-4.5", "gpt-4o") or
@@ -219,6 +221,17 @@ def create_deep_agent(
     # Default empty sequences if None provided
     tools_list = list(tools or [])
     middleware_list = list(middleware or [])
+    
+    # Auto-inject loop detection middleware for autonomous agents
+    # This prevents infinite loops by tracking tool invocations and intervening
+    # when repetitive patterns are detected. Enabled by default.
+    loop_detection = LoopDetectionMiddleware(
+        history_size=10,
+        consecutive_threshold=3,
+        total_threshold=5,
+        enabled=True,
+    )
+    middleware_list.append(loop_detection)
     
     # MCP integration (Universal Authentication Framework)
     if mcp_servers and mcp_tools:
