@@ -242,6 +242,7 @@ class TestPromptEnhancementIntegration:
     def test_prompt_enhancement_enabled_by_default(self) -> None:
         """Test that prompt enhancement is enabled by default."""
         from unittest.mock import patch
+
         from graphton.core.prompt_enhancement import enhance_user_instructions
         
         user_prompt = "You are a helpful assistant."
@@ -275,15 +276,16 @@ class TestPromptEnhancementIntegration:
     
     def test_prompt_enhancement_includes_mcp_awareness(self) -> None:
         """Test that prompt enhancement includes MCP tools awareness when configured."""
-        from unittest.mock import patch, MagicMock
-        from graphton.core.prompt_enhancement import enhance_user_instructions
+        from unittest.mock import MagicMock, patch
+
         
         user_prompt = "You help manage cloud resources."
         
-        # Mock MCP components
+        # Mock MCP components - patch at their original import locations
         with patch('graphton.core.agent.deepagents_create_deep_agent') as mock_create, \
-             patch('graphton.core.agent.McpToolsLoader') as mock_mcp_loader, \
-             patch('graphton.core.agent.create_tool_wrapper') as mock_tool_wrapper:
+             patch('graphton.core.middleware.McpToolsLoader') as mock_mcp_loader, \
+             patch('graphton.core.tool_wrappers.create_tool_wrapper') as mock_tool_wrapper, \
+             patch('graphton.core.tool_wrappers.create_lazy_tool_wrapper') as mock_lazy_wrapper:
             
             # Setup mocks
             mock_agent = type('MockAgent', (), {
@@ -293,9 +295,11 @@ class TestPromptEnhancementIntegration:
             
             mock_middleware_instance = MagicMock()
             mock_middleware_instance.is_dynamic = False
+            mock_middleware_instance._deferred_loading = False
             mock_mcp_loader.return_value = mock_middleware_instance
             
             mock_tool_wrapper.return_value = MagicMock()
+            mock_lazy_wrapper.return_value = MagicMock()
             
             # Create agent with MCP tools
             create_deep_agent(

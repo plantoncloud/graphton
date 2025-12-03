@@ -314,22 +314,15 @@ def create_deep_agent(
             "Cannot configure one without the other."
         )
     
-    # Enhance user instructions with capability awareness (Phase 5)
+    # Enhance system prompt with capability awareness (unless disabled)
     if auto_enhance_prompt:
         enhanced_prompt = enhance_user_instructions(
             system_prompt,
             has_mcp_tools=bool(mcp_servers and mcp_tools),
+            has_sandbox=bool(sandbox_config),
         )
     else:
         enhanced_prompt = system_prompt
-    
-    # Enhance system prompt with capability awareness (unless disabled)
-    if auto_enhance_prompt:
-        system_prompt = enhance_user_instructions(
-            user_instructions=system_prompt,
-            has_mcp_tools=bool(mcp_tools),
-            has_sandbox=bool(sandbox_config)
-        )
     
     # Create sandbox backend if configured (for terminal execution support)
     backend = None
