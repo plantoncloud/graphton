@@ -89,9 +89,13 @@ def create_sandbox_backend(config: dict[str, Any]) -> BackendProtocol:
         import time
         
         try:
-            from deepagents_cli.integrations.daytona import DaytonaBackend  # type: ignore[import-untyped]
             from daytona import Daytona, DaytonaConfig  # type: ignore[import-untyped]
-            from daytona.common.daytona import CreateSandboxFromSnapshotParams  # type: ignore[import-untyped]
+            from daytona.common.daytona import (
+                CreateSandboxFromSnapshotParams,  # type: ignore[import-untyped]
+            )
+            from deepagents_cli.integrations.daytona import (
+                DaytonaBackend,  # type: ignore[import-untyped]
+            )
         except ImportError as e:
             raise ValueError(
                 f"Daytona backend requires 'daytona' package. "
