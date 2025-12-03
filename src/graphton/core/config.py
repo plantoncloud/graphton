@@ -30,6 +30,9 @@ class AgentConfig(BaseModel):
         tools: Optional list of additional tools
         middleware: Optional list of middleware
         context_schema: Optional state schema for the agent
+        sandbox_config: Optional dict configuring sandbox backend for terminal execution.
+            When provided, enables the 'execute' tool for running shell commands.
+            Format: {"type": "filesystem", "root_dir": "/workspace"}
         recursion_limit: Maximum recursion depth (default: 100)
         max_tokens: Override default max_tokens for the model
         temperature: Override default temperature for the model
@@ -61,9 +64,11 @@ class AgentConfig(BaseModel):
     tools: Sequence[BaseTool] | None = None
     middleware: Sequence[Any] | None = None
     context_schema: type[Any] | None = None
+    sandbox_config: dict[str, Any] | None = None
     recursion_limit: int = 100
     max_tokens: int | None = None
     temperature: float | None = None
+    auto_enhance_prompt: bool = True
     
     model_config = ConfigDict(arbitrary_types_allowed=True)
     
@@ -197,6 +202,58 @@ class AgentConfig(BaseModel):
                 f"temperature must be between 0.0 and 2.0, got {v}. "
                 "Use 0.0-0.3 for deterministic output, 0.7-1.0 for creative output."
             )
+        return v
+    
+    @field_validator("sandbox_config")
+    @classmethod
+    def validate_sandbox_config(
+        cls, v: dict[str, Any] | None
+    ) -> dict[str, Any] | None:
+        """Validate sandbox configuration structure.
+        
+        Args:
+            v: Sandbox configuration dictionary
+            
+        Returns:
+            Validated sandbox configuration
+            
+        Raises:
+            ValueError: If configuration is invalid
+        
+        """
+        if v is None:
+            return v
+        
+        if not isinstance(v, dict):
+            raise ValueError(
+                f"sandbox_config must be a dictionary, got {type(v).__name__}"
+            )
+        
+        if not v:
+            raise ValueError(
+                "sandbox_config cannot be empty. "
+                "Specify at least {'type': 'filesystem'} or remove sandbox_config parameter."
+            )
+        
+        if "type" not in v:
+            raise ValueError(
+                "sandbox_config must include 'type' key. "
+                "Supported types: filesystem, modal, runloop, daytona, harbor"
+            )
+        
+        sandbox_type = v["type"]
+        if not isinstance(sandbox_type, str):
+            raise ValueError(
+                f"sandbox_config 'type' must be a string, got {type(sandbox_type).__name__}"
+            )
+        
+        supported_types = {"filesystem", "modal", "runloop", "daytona", "harbor"}
+        if sandbox_type not in supported_types:
+            raise ValueError(
+                f"Unsupported sandbox type: {sandbox_type}. "
+                f"Supported types: {', '.join(sorted(supported_types))}"
+            )
+        
         return v
     
     @model_validator(mode="after")

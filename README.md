@@ -13,6 +13,7 @@ Graphton eliminates boilerplate when creating LangGraph agents with MCP tools. C
 - **Declarative Agent Creation**: Minimal boilerplate - just specify model and behavior
 - **Automatic Prompt Enhancement**: Agents automatically understand available capabilities (planning, file system, MCP tools)
 - **Universal MCP Authentication**: Support for any MCP server configuration with both static and dynamic authentication modes
+- **Intelligent Loop Detection**: Automatically detects and prevents infinite loops in autonomous agents
 - **Production Ready**: Works in both local and remote LangGraph deployments
 - **Type-Safe Configuration**: Pydantic validation with helpful error messages
 - **IDE Support**: Full autocomplete and type hints for better developer experience

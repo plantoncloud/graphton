@@ -294,7 +294,9 @@ agent = create_deep_agent(
 
 Additional middleware for the agent.
 
-**Note**: MCP tool loading middleware is auto-injected when `mcp_servers` and `mcp_tools` are provided.
+**Auto-injected middleware**:
+- **Loop Detection**: Automatically injected to prevent infinite loops (see [Loop Detection](#loop-detection) below)
+- **MCP Tool Loading**: Auto-injected when `mcp_servers` and `mcp_tools` are provided
 
 **Examples**:
 
@@ -784,5 +786,131 @@ agent = create_deep_agent(
 - Type-safe configuration
 - IDE autocomplete support
 - Consistent patterns across agents
+
+## Loop Detection
+
+Graphton automatically injects loop detection middleware to prevent infinite loops in autonomous agents. This is a common issue in agent systems and can waste significant resources.
+
+### How It Works
+
+The loop detection middleware:
+
+1. **Tracks tool invocations**: Monitors the last 10 tool calls (tool name + parameter hash)
+2. **Detects consecutive repetitions**: If the same tool with similar parameters is called 3+ times in a row, injects a warning message
+3. **Detects total repetitions**: If the same tool is called 5+ times total (even with other tools in between), forces graceful conclusion
+4. **Intervenes intelligently**: Guides the agent toward different approaches or graceful completion
+
+### Default Configuration
+
+Loop detection is enabled by default with these settings:
+
+```python
+# Auto-injected in every agent
+LoopDetectionMiddleware(
+    history_size=10,              # Track last 10 tool calls
+    consecutive_threshold=3,       # Warn after 3 consecutive repeats
+    total_threshold=5,             # Stop after 5 total repeats
+    enabled=True,                  # Active by default
+)
+```
+
+### Intervention Strategy
+
+**First Detection (3 consecutive repeats)**: Warning message injected
+
+```
+⚠️ LOOP WARNING: Repetitive pattern detected.
+
+You have called 'read_file' 3 times in a row. This suggests you may be 
+stuck or approaching the problem incorrectly.
+
+Recommended actions:
+1. Try a completely different approach or tool
+2. Re-examine your assumptions about the problem
+3. Consider if you have enough information to conclude
+4. Avoid calling 'read_file' again unless absolutely necessary
+
+Adapt your strategy to make progress.
+```
+
+**Second Detection (5 total repeats)**: Final intervention - force stop
+
+```
+⚠️ LOOP DETECTED: Critical repetition limit reached.
+
+You have called 'read_file' 5 times with similar parameters. This 
+indicates you are stuck in a loop and unable to make progress.
+
+You MUST conclude your work now:
+1. Summarize what you have learned so far
+2. Explain the obstacle preventing progress
+3. Provide your best assessment based on available information
+4. Do NOT call 'read_file' again
+
+Conclude gracefully with the information you have gathered.
+```
+
+### Why Loop Detection Matters
+
+**Cost Savings**: Prevents wasted LLM API calls on stuck agents
+
+**Reliability**: Agents complete successfully or fail fast with clear reason
+
+**Observability**: Logs show where agents get stuck, informing improvements
+
+**User Experience**: Users get results faster instead of waiting for timeout
+
+### Example: Loop Detection in Action
+
+```python
+from graphton import create_deep_agent
+
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="You are a troubleshooting assistant.",
+    recursion_limit=1000,  # High limit for deep investigation
+)
+
+# Loop detection automatically prevents infinite loops
+# even with high recursion limit
+result = agent.invoke({
+    "messages": [{"role": "user", "content": "Debug this pipeline failure"}]
+})
+```
+
+In this example:
+- Agent has `recursion_limit=1000` for maximum autonomy
+- If agent gets stuck calling the same tool repeatedly, loop detection intervenes
+- Agent either adapts its strategy or concludes gracefully
+- Cost and time are saved by early intervention
+
+### Monitoring Loop Detection
+
+Loop detection events are logged for observability:
+
+```
+WARNING - LOOP WARNING - Consecutive threshold reached: read_file called 3 times in a row
+INFO - Loop detection: Warning intervention injected (intervention #1)
+WARNING - LOOP DETECTED - Total threshold exceeded: read_file called 5 times
+INFO - Loop detection: Final intervention injected, execution will stop
+```
+
+These logs help you:
+- Identify which tools cause agents to loop
+- Understand where agents get stuck
+- Tune system prompts to avoid common loops
+- Adjust thresholds if needed
+
+### Relationship with Recursion Limit
+
+Loop detection and recursion limit work together:
+
+- **Recursion limit**: Maximum total agent steps (default: 100, recommended: 1000 for autonomous agents)
+- **Loop detection**: Stops execution early if repetitive patterns detected
+
+This combination provides:
+- **Maximum autonomy**: High recursion limit allows deep investigation
+- **Cost protection**: Loop detection prevents wasted iterations
+- **Reliability**: Agents complete or fail fast with clear diagnostics
 
 

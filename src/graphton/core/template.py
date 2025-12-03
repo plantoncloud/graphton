@@ -221,3 +221,12 @@ def validate_template_syntax(config: Any) -> list[str]:  # noqa: ANN401
     return errors
 
 
+
+
+
+
+
+
+
+
+

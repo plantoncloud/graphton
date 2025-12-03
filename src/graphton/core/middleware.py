@@ -101,6 +101,7 @@ class McpToolsLoader(AgentMiddleware):
         # Track whether tools have been loaded
         self._tools_loaded = False
         self._tools_cache: dict[str, Any] = {}
+        self._deferred_loading = False
         
         # If static config (no templates), load tools immediately
         if not self.is_dynamic:
@@ -119,21 +120,30 @@ class McpToolsLoader(AgentMiddleware):
         """Load tools for static configurations (synchronous wrapper).
         
         Called at initialization for static configs (no template variables).
+        
+        If called from an async context (event loop already running), defers
+        tool loading until the first middleware invocation to avoid event loop
+        nesting issues.
         """
         try:
             # Get or create event loop for async tool loading
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
-                    # If loop is already running, we can't use run_until_complete
-                    # This shouldn't happen at initialization, but handle gracefully
-                    raise RuntimeError("Event loop already running during static tool loading")
+                    # We're in an async context (e.g., Temporal activity)
+                    # Defer loading until first middleware call to avoid nesting
+                    logger.info(
+                        "Async context detected (event loop running). "
+                        "Deferring static tool loading to first invocation."
+                    )
+                    self._deferred_loading = True
+                    return
             except RuntimeError:
                 # No event loop in current thread, create one
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
             
-            # Load tools synchronously
+            # Load tools synchronously (sync context only)
             tools = loop.run_until_complete(
                 load_mcp_tools(self.servers, self.tool_filter)
             )
@@ -160,6 +170,40 @@ class McpToolsLoader(AgentMiddleware):
                 "Check MCP server connectivity and configuration."
             ) from e
     
+    async def _load_static_tools_async(self) -> None:
+        """Load tools for static configurations asynchronously.
+        
+        Called from abefore_agent() when tool loading was deferred due to
+        async context at initialization time.
+        """
+        try:
+            logger.info("Loading static MCP tools (deferred from initialization)...")
+            
+            # Load tools asynchronously
+            tools = await load_mcp_tools(self.servers, self.tool_filter)
+            
+            if not tools:
+                raise RuntimeError(
+                    "No MCP tools were loaded from static configuration. "
+                    "Check server accessibility and tool filter."
+                )
+            
+            # Cache tools by name
+            self._tools_cache = {tool.name: tool for tool in tools}
+            self._tools_loaded = True
+            
+            logger.info(
+                f"Successfully loaded {len(tools)} static MCP tool(s) (deferred): "
+                f"{list(self._tools_cache.keys())}"
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to load static MCP tools (deferred): {e}", exc_info=True)
+            raise RuntimeError(
+                f"Static MCP tool loading failed during deferred initialization: {e}. "
+                "Check MCP server connectivity and configuration."
+            ) from e
+    
     async def abefore_agent(
         self,
         state: AgentState[Any],
@@ -170,6 +214,7 @@ class McpToolsLoader(AgentMiddleware):
         Behavior depends on configuration mode:
         
         - **Static mode**: Tools already loaded at initialization, returns immediately
+          (or loads now if deferred from async context at init time)
         - **Dynamic mode**: Substitutes templates from runtime context and loads tools
         
         This is the async version that directly awaits MCP tool loading, avoiding
@@ -187,9 +232,14 @@ class McpToolsLoader(AgentMiddleware):
             RuntimeError: If MCP tools fail to load
 
         """
-        # Static mode: tools already loaded at initialization
+        # Static mode: check if deferred loading is needed
         if not self.is_dynamic:
-            logger.debug("Static MCP mode: tools already loaded, skipping")
+            # If loading was deferred (async context at init), load now
+            if self._deferred_loading and not self._tools_loaded:
+                await self._load_static_tools_async()
+                self._deferred_loading = False
+            else:
+                logger.debug("Static MCP mode: tools already loaded, skipping")
             return None
         
         # Dynamic mode: substitute templates and load tools

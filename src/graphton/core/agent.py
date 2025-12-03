@@ -15,6 +15,7 @@ from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import ValidationError
 
+from graphton.core.loop_detection import LoopDetectionMiddleware
 from graphton.core.models import parse_model_string
 from graphton.core.prompt_enhancement import enhance_user_instructions
 from graphton.core.tool_wrappers import create_lazy_tool_wrapper
@@ -28,6 +29,7 @@ def create_deep_agent(
     tools: Sequence[BaseTool] | None = None,
     middleware: Sequence[Any] | None = None,
     context_schema: type[Any] | None = None,
+    sandbox_config: dict[str, Any] | None = None,
     recursion_limit: int = 100,
     max_tokens: int | None = None,
     temperature: float | None = None,
@@ -43,6 +45,7 @@ def create_deep_agent(
     - Supporting both string-based and instance-based model configuration
     - Auto-loading MCP tools with per-user authentication (Phase 3)
     - Auto-enhancing prompts with capability awareness (Phase 5)
+    - Auto-injecting loop detection to prevent infinite loops
     
     Args:
         model: Model name string (e.g., "claude-sonnet-4.5", "gpt-4o") or
@@ -74,6 +77,12 @@ def create_deep_agent(
             MCP tool loading middleware will be auto-injected if MCP configured.
         context_schema: Optional state schema for the agent. Defaults to FilesystemState
             from deepagents, which provides file system operations.
+        sandbox_config: Optional dict configuring sandbox backend for file operations.
+            Enables file system tools (read, write, edit, ls, glob, grep).
+            Configuration format: {"type": "filesystem", "root_dir": "/workspace"}
+            Supported types: filesystem (file ops only), modal, runloop, daytona, harbor.
+            Note: 'filesystem' type provides file operations but execute tool returns error.
+            If not provided, uses default ephemeral state backend.
         recursion_limit: Maximum recursion depth for the agent (default: 100).
             This prevents infinite loops in agent reasoning.
         max_tokens: Override default max_tokens for the model. Defaults depend on
@@ -87,6 +96,9 @@ def create_deep_agent(
             is appended to user instructions. This helps agents effectively use
             available capabilities without requiring users to know framework internals.
             Set to False to use system_prompt as-is without enhancement.
+        auto_enhance_prompt: Automatically enhance system_prompt with awareness of
+            available capabilities (planning, file system, execute, MCP tools).
+            Default is True. Set to False to use system_prompt exactly as provided.
         **model_kwargs: Additional model-specific parameters to pass to the model
             constructor (e.g., top_p, top_k for Anthropic).
     
@@ -164,6 +176,21 @@ def create_deep_agent(
         will occur. This is intentional and acceptable - LLMs handle redundant
         information gracefully, and reinforcement is better than missing critical
         context about available capabilities.
+        
+        Agent with filesystem backend:
+        
+        >>> agent = create_deep_agent(
+        ...     model="claude-sonnet-4.5",
+        ...     system_prompt="You are a file management assistant.",
+        ...     sandbox_config={
+        ...         "type": "filesystem",
+        ...         "root_dir": "/workspace"
+        ...     }
+        ... )
+        >>> # Agent can perform file operations (read, write, edit, ls, glob, grep)
+        >>> result = agent.invoke(
+        ...     {"messages": [{"role": "user", "content": "List files in current directory"}]}
+        ... )
     
     """
     # Validate configuration using AgentConfig model
@@ -180,6 +207,7 @@ def create_deep_agent(
             tools=tools,
             middleware=middleware,
             context_schema=context_schema,
+            sandbox_config=sandbox_config,
             recursion_limit=recursion_limit,
             max_tokens=max_tokens,
             temperature=temperature,
@@ -218,6 +246,17 @@ def create_deep_agent(
     tools_list = list(tools or [])
     middleware_list = list(middleware or [])
     
+    # Auto-inject loop detection middleware for autonomous agents
+    # This prevents infinite loops by tracking tool invocations and intervening
+    # when repetitive patterns are detected. Enabled by default.
+    loop_detection = LoopDetectionMiddleware(
+        history_size=10,
+        consecutive_threshold=3,
+        total_threshold=5,
+        enabled=True,
+    )
+    middleware_list.append(loop_detection)
+    
     # MCP integration (Universal Authentication Framework)
     if mcp_servers and mcp_tools:
         # Import MCP modules only when needed
@@ -245,16 +284,21 @@ def create_deep_agent(
         )
         
         # Generate tool wrappers for all requested tools
-        # Use lazy wrappers for dynamic mode (template variables present)
-        # Use eager wrappers for static mode (tools already loaded)
+        # Use lazy wrappers if:
+        # 1. Dynamic mode (template variables present - need config values), OR
+        # 2. Deferred loading (tools not loaded yet due to async context at init)
+        # Use eager wrappers only when tools are guaranteed to be loaded
         mcp_tool_wrappers: list[BaseTool] = []
         for server_name, tool_names in mcp_tools.items():
             for tool_name in tool_names:
-                if mcp_middleware.is_dynamic:
-                    # Dynamic mode: Use lazy wrapper (tools loaded at invocation)
+                # Check if we should use lazy wrappers
+                use_lazy = mcp_middleware.is_dynamic or mcp_middleware._deferred_loading
+                
+                if use_lazy:
+                    # Lazy mode: Tools will be loaded at invocation time
                     wrapper = create_lazy_tool_wrapper(tool_name, mcp_middleware)
                 else:
-                    # Static mode: Use eager wrapper (tools already loaded)
+                    # Eager mode: Tools already loaded, can access immediately
                     wrapper = create_tool_wrapper(tool_name, mcp_middleware)
                 mcp_tool_wrappers.append(wrapper)  # type: ignore[arg-type]
         
@@ -279,6 +323,20 @@ def create_deep_agent(
     else:
         enhanced_prompt = system_prompt
     
+    # Enhance system prompt with capability awareness (unless disabled)
+    if auto_enhance_prompt:
+        system_prompt = enhance_user_instructions(
+            user_instructions=system_prompt,
+            has_mcp_tools=bool(mcp_tools),
+            has_sandbox=bool(sandbox_config)
+        )
+    
+    # Create sandbox backend if configured (for terminal execution support)
+    backend = None
+    if sandbox_config:
+        from graphton.core.sandbox_factory import create_sandbox_backend
+        backend = create_sandbox_backend(sandbox_config)
+    
     # Create the Deep Agent using deepagents library
     agent = deepagents_create_deep_agent(
         model=model_instance,
@@ -286,6 +344,7 @@ def create_deep_agent(
         system_prompt=enhanced_prompt,
         middleware=middleware_list,
         context_schema=context_schema,
+        backend=backend,
     )
     
     # Apply recursion limit configuration
