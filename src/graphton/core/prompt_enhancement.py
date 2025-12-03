@@ -15,6 +15,7 @@ The enhancement philosophy:
 def enhance_user_instructions(
     user_instructions: str,
     has_mcp_tools: bool = False,
+    has_sandbox: bool = False,
 ) -> str:
     """Enhance user instructions with awareness of Deep Agents capabilities.
     
@@ -33,6 +34,8 @@ def enhance_user_instructions(
             These are preserved as-is and placed first in the result.
         has_mcp_tools: Whether the agent has MCP tools configured. When True,
             adds awareness about domain-specific MCP capabilities.
+        has_sandbox: Whether the agent has sandbox backend configured. When True,
+            adds awareness about execute tool for running shell commands.
     
     Returns:
         Enhanced instructions combining user content with capability awareness.
@@ -90,6 +93,15 @@ def enhance_user_instructions(
             "configured specifically for this agent. These are domain-specific tools "
             "for specialized operations. Use them to accomplish tasks that require "
             "external system integration or specialized capabilities."
+        )
+    
+    # Conditionally include execute tool awareness
+    if has_sandbox:
+        capability_sections.append(
+            "**Execute Tool**: You have access to a secure sandbox environment "
+            "where you can run shell commands using the execute tool. Use this for "
+            "running scripts, tests, builds, package installations, and other command-line "
+            "operations. The sandbox is isolated and secure."
         )
     
     # Combine user instructions with capability awareness

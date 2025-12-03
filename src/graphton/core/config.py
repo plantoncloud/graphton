@@ -68,6 +68,7 @@ class AgentConfig(BaseModel):
     recursion_limit: int = 100
     max_tokens: int | None = None
     temperature: float | None = None
+    auto_enhance_prompt: bool = True
     
     model_config = ConfigDict(arbitrary_types_allowed=True)
     

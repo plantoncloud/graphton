@@ -16,6 +16,7 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import ValidationError
 
 from graphton.core.models import parse_model_string
+from graphton.core.prompt_enhancement import enhance_user_instructions
 from graphton.core.tool_wrappers import create_lazy_tool_wrapper
 
 
@@ -31,6 +32,7 @@ def create_deep_agent(
     recursion_limit: int = 100,
     max_tokens: int | None = None,
     temperature: float | None = None,
+    auto_enhance_prompt: bool = True,
     **model_kwargs: Any,  # noqa: ANN401
 ) -> CompiledStateGraph:
     """Create a Deep Agent with minimal boilerplate.
@@ -83,6 +85,9 @@ def create_deep_agent(
         temperature: Override default temperature for the model. Higher values
             (e.g., 0.7-1.0) make output more creative, lower values (e.g., 0.0-0.3)
             make it more deterministic.
+        auto_enhance_prompt: Automatically enhance system_prompt with awareness of
+            available capabilities (planning, file system, execute, MCP tools).
+            Default is True. Set to False to use system_prompt exactly as provided.
         **model_kwargs: Additional model-specific parameters to pass to the model
             constructor (e.g., top_p, top_k for Anthropic).
     
@@ -270,6 +275,14 @@ def create_deep_agent(
         raise ValueError(
             "Both mcp_servers and mcp_tools must be provided together. "
             "Cannot configure one without the other."
+        )
+    
+    # Enhance system prompt with capability awareness (unless disabled)
+    if auto_enhance_prompt:
+        system_prompt = enhance_user_instructions(
+            user_instructions=system_prompt,
+            has_mcp_tools=bool(mcp_tools),
+            has_sandbox=bool(sandbox_config)
         )
     
     # Create sandbox backend if configured (for terminal execution support)
