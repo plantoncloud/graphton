@@ -21,7 +21,7 @@ from collections import deque
 from typing import Any
 
 from langchain.agents.middleware.types import AgentMiddleware, AgentState
-from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, SystemMessage
 from langgraph.runtime import Runtime
 
 logger = logging.getLogger(__name__)
@@ -56,6 +56,7 @@ class LoopDetectionMiddleware(AgentMiddleware):
         consecutive_threshold: Number of consecutive repeats before warning (default: 3)
         total_threshold: Total repetitions before stopping (default: 5)
         enabled: Whether loop detection is active (default: True)
+
     """
     
     def __init__(
@@ -72,6 +73,7 @@ class LoopDetectionMiddleware(AgentMiddleware):
             consecutive_threshold: Consecutive repeats before intervention
             total_threshold: Total repetitions before stopping
             enabled: Whether loop detection is active
+
         """
         self.history_size = history_size
         self.consecutive_threshold = consecutive_threshold
@@ -102,6 +104,7 @@ class LoopDetectionMiddleware(AgentMiddleware):
             
         Returns:
             SHA256 hash of normalized parameters
+
         """
         # Normalize params to ensure consistent hashing
         # Sort keys, convert to JSON, hash the string
@@ -117,8 +120,9 @@ class LoopDetectionMiddleware(AgentMiddleware):
         
         Returns:
             Tuple of (is_loop, tool_name, consecutive_count)
+
         """
-        if len(self._tool_history) < self.consecutive_threshold:
+        if not self._tool_history:
             return False, "", 0
         
         # Get the most recent tool call
@@ -140,6 +144,7 @@ class LoopDetectionMiddleware(AgentMiddleware):
         
         Returns:
             Tuple of (is_excessive, tool_name, total_count)
+
         """
         if not self._tool_history:
             return False, "", 0
@@ -172,6 +177,7 @@ class LoopDetectionMiddleware(AgentMiddleware):
             
         Returns:
             SystemMessage with intervention guidance
+
         """
         if is_final:
             content = (
@@ -213,6 +219,7 @@ class LoopDetectionMiddleware(AgentMiddleware):
             
         Returns:
             None (state tracking is internal)
+
         """
         if not self.enabled:
             return None
@@ -241,6 +248,7 @@ class LoopDetectionMiddleware(AgentMiddleware):
             
         Returns:
             Modified state with intervention messages if loop detected
+
         """
         if not self.enabled or self._stopped:
             return None
@@ -290,7 +298,7 @@ class LoopDetectionMiddleware(AgentMiddleware):
                         self._stopped = True
                         
                         logger.info(
-                            f"Loop detection: Final intervention injected, execution will stop"
+                            "Loop detection: Final intervention injected, execution will stop"
                         )
                         
                         return {"messages": state["messages"]}
@@ -336,6 +344,7 @@ class LoopDetectionMiddleware(AgentMiddleware):
             
         Returns:
             None
+
         """
         if not self.enabled:
             return None

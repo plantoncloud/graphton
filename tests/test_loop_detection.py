@@ -1,7 +1,7 @@
 """Unit tests for loop detection middleware."""
 
 import pytest
-from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, SystemMessage
 
 from graphton.core.loop_detection import LoopDetectionMiddleware
 
