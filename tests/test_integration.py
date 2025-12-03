@@ -235,3 +235,161 @@ class TestAgentBehavior:
         assert "messages" in result
         assert len(result["messages"]) > 0
 
+
+class TestPromptEnhancementIntegration:
+    """Integration tests for automatic prompt enhancement functionality."""
+    
+    def test_prompt_enhancement_enabled_by_default(self) -> None:
+        """Test that prompt enhancement is enabled by default."""
+        from unittest.mock import patch
+
+        from graphton.core.prompt_enhancement import enhance_user_instructions
+        
+        user_prompt = "You are a helpful assistant."
+        
+        # Mock the deepagents create_deep_agent to capture the system prompt
+        with patch('graphton.core.agent.deepagents_create_deep_agent') as mock_create:
+            # Setup mock to return a valid agent-like object
+            mock_agent = type('MockAgent', (), {
+                'with_config': lambda self, config: self
+            })()
+            mock_create.return_value = mock_agent
+            
+            # Create agent (default auto_enhance_prompt=True)
+            create_deep_agent(
+                model="claude-sonnet-4.5",
+                system_prompt=user_prompt,
+            )
+            
+            # Verify deepagents was called with enhanced prompt
+            assert mock_create.called
+            call_kwargs = mock_create.call_args[1]
+            actual_prompt = call_kwargs['system_prompt']
+            
+            # Verify prompt was enhanced
+            expected_enhanced = enhance_user_instructions(user_prompt, has_mcp_tools=False)
+            assert actual_prompt == expected_enhanced
+            
+            # Verify it contains capability context
+            assert "planning" in actual_prompt.lower() or "todo" in actual_prompt.lower()
+            assert "file system" in actual_prompt.lower()
+    
+    def test_prompt_enhancement_includes_mcp_awareness(self) -> None:
+        """Test that prompt enhancement includes MCP tools awareness when configured."""
+        from unittest.mock import MagicMock, patch
+
+        
+        user_prompt = "You help manage cloud resources."
+        
+        # Mock MCP components - patch at their original import locations
+        with patch('graphton.core.agent.deepagents_create_deep_agent') as mock_create, \
+             patch('graphton.core.middleware.McpToolsLoader') as mock_mcp_loader, \
+             patch('graphton.core.tool_wrappers.create_tool_wrapper') as mock_tool_wrapper, \
+             patch('graphton.core.tool_wrappers.create_lazy_tool_wrapper') as mock_lazy_wrapper:
+            
+            # Setup mocks
+            mock_agent = type('MockAgent', (), {
+                'with_config': lambda self, config: self
+            })()
+            mock_create.return_value = mock_agent
+            
+            mock_middleware_instance = MagicMock()
+            mock_middleware_instance.is_dynamic = False
+            mock_middleware_instance._deferred_loading = False
+            mock_mcp_loader.return_value = mock_middleware_instance
+            
+            mock_tool_wrapper.return_value = MagicMock()
+            mock_lazy_wrapper.return_value = MagicMock()
+            
+            # Create agent with MCP tools
+            create_deep_agent(
+                model="claude-sonnet-4.5",
+                system_prompt=user_prompt,
+                mcp_servers={"test-server": {"url": "http://test"}},
+                mcp_tools={"test-server": ["test_tool"]},
+            )
+            
+            # Verify prompt included MCP awareness
+            call_kwargs = mock_create.call_args[1]
+            actual_prompt = call_kwargs['system_prompt']
+            
+            # Should have MCP tools mentioned
+            assert "mcp" in actual_prompt.lower()
+    
+    def test_prompt_enhancement_can_be_disabled(self) -> None:
+        """Test that prompt enhancement can be disabled with auto_enhance_prompt=False."""
+        from unittest.mock import patch
+        
+        user_prompt = "Detailed instructions with all context included."
+        
+        with patch('graphton.core.agent.deepagents_create_deep_agent') as mock_create:
+            mock_agent = type('MockAgent', (), {
+                'with_config': lambda self, config: self
+            })()
+            mock_create.return_value = mock_agent
+            
+            # Create agent with enhancement disabled
+            create_deep_agent(
+                model="claude-sonnet-4.5",
+                system_prompt=user_prompt,
+                auto_enhance_prompt=False,
+            )
+            
+            # Verify prompt was NOT enhanced
+            call_kwargs = mock_create.call_args[1]
+            actual_prompt = call_kwargs['system_prompt']
+            
+            # Should be exactly the user's prompt
+            assert actual_prompt == user_prompt
+            # Should NOT have added capability context
+            assert actual_prompt == user_prompt and len(actual_prompt) == len(user_prompt)
+    
+    @skip_if_no_anthropic_key
+    def test_enhanced_agent_can_invoke_successfully(self) -> None:
+        """Test that agents with enhanced prompts can invoke successfully."""
+        # Create agent with default enhancement enabled
+        agent = create_deep_agent(
+            model="claude-sonnet-4.5",
+            system_prompt="You are a helpful assistant.",
+        )
+        
+        # Should invoke successfully
+        result = agent.invoke({
+            "messages": [{"role": "user", "content": "What is 7+3?"}]
+        })
+        
+        assert "messages" in result
+        assert len(result["messages"]) > 0
+        
+        last_message = result["messages"][-1]
+        content = last_message.content if hasattr(last_message, 'content') else str(last_message)
+        
+        # Should get a response (likely containing "10")
+        assert content and len(content) > 0
+    
+    def test_prompt_enhancement_preserves_user_instructions(self) -> None:
+        """Test that user instructions are preserved in enhanced prompt."""
+        from unittest.mock import patch
+        
+        user_prompt = "You are a specialized research assistant focusing on AI."
+        
+        with patch('graphton.core.agent.deepagents_create_deep_agent') as mock_create:
+            mock_agent = type('MockAgent', (), {
+                'with_config': lambda self, config: self
+            })()
+            mock_create.return_value = mock_agent
+            
+            create_deep_agent(
+                model="claude-sonnet-4.5",
+                system_prompt=user_prompt,
+            )
+            
+            call_kwargs = mock_create.call_args[1]
+            actual_prompt = call_kwargs['system_prompt']
+            
+            # User instructions should be at the start
+            assert actual_prompt.startswith(user_prompt)
+            # But should be longer due to enhancement
+            assert len(actual_prompt) > len(user_prompt)
+
+

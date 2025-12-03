@@ -26,6 +26,7 @@ def create_deep_agent(
     recursion_limit: int = 100,
     max_tokens: int | None = None,
     temperature: float | None = None,
+    auto_enhance_prompt: bool = True,
     **model_kwargs: Any,
 ) -> CompiledStateGraph:
 ```
@@ -77,11 +78,12 @@ model = ChatOpenAI(
 
 #### system_prompt (required)
 - **Type:** `str`
-- **Description:** System prompt defining agent behavior
+- **Description:** System prompt defining agent behavior. By default, this is automatically enhanced with awareness of Deep Agents capabilities (planning, file system, MCP tools).
 - **Validation:** Must be at least 10 characters
+- **Enhancement:** Automatically enriched with capability context unless `auto_enhance_prompt=False`
 
 ```python
-# Good examples
+# Good examples - will be auto-enhanced
 system_prompt = """You are a helpful coding assistant specializing in Python.
 
 Your capabilities:
@@ -91,6 +93,9 @@ Your capabilities:
 """
 
 system_prompt = "You are a cloud infrastructure expert helping users manage AWS resources."
+
+# Note: Graphton automatically adds context about planning system,
+# file system tools, and MCP capabilities (if configured)
 ```
 
 #### mcp_servers (optional)
@@ -282,6 +287,64 @@ agent = create_deep_agent(
 - **Description:** Model temperature controlling output randomness
 - **Validation:** Must be between 0.0 and 2.0
 - **Note:** Ignored when passing a model instance
+
+```python
+# Conservative (deterministic)
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="You are a code reviewer.",
+    temperature=0.0  # Very deterministic
+)
+
+# Creative
+agent = create_deep_agent(
+    model="gpt-4o",
+    system_prompt="You are a creative writing assistant.",
+    temperature=0.9  # More random/creative
+)
+```
+
+#### auto_enhance_prompt (optional)
+- **Type:** `bool`
+- **Default:** `True`
+- **Description:** Whether to automatically enhance system_prompt with awareness of Deep Agents capabilities
+- **Added:** Phase 5
+
+**When enabled** (default):
+- Automatically appends high-level context about planning system, file system, and MCP tools
+- Helps agents understand what capabilities they have and when to use them
+- No action needed from users - enhancement happens automatically
+
+**When disabled** (`auto_enhance_prompt=False`):
+- Uses system_prompt exactly as provided
+- Useful when you've already included detailed capability descriptions
+- Or when you want complete control over the prompt
+
+```python
+# Default: automatic enhancement
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="You are a research assistant.",
+    # auto_enhance_prompt=True by default
+)
+# Agent will understand planning and file system capabilities
+
+# Opt-out: use prompt as-is
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="""You are a research assistant.
+
+    You have access to:
+    - Planning tools (write_todos, read_todos) for complex tasks
+    - File system (ls, read_file, write_file, etc.) for context
+    - [... detailed capability descriptions ...]
+    """,
+    auto_enhance_prompt=False,  # Disable automatic enhancement
+)
+```
+
+**Note on redundancy:**  
+If your system_prompt already mentions planning or file system capabilities, some overlap will occur when enhancement is enabled. This is intentional and acceptable - LLMs handle redundant information gracefully, and reinforcement is better than missing critical context.
 
 ```python
 # Deterministic (code generation)

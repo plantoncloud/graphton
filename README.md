@@ -11,6 +11,7 @@ Graphton eliminates boilerplate when creating LangGraph agents with MCP tools. C
 ## Features
 
 - **Declarative Agent Creation**: Minimal boilerplate - just specify model and behavior
+- **Automatic Prompt Enhancement**: Agents automatically understand available capabilities (planning, file system, MCP tools)
 - **Universal MCP Authentication**: Support for any MCP server configuration with both static and dynamic authentication modes
 - **Intelligent Loop Detection**: Automatically detects and prevents infinite loops in autonomous agents
 - **Production Ready**: Works in both local and remote LangGraph deployments
@@ -124,6 +125,45 @@ agent = create_deep_agent(
 # Invoke without auth config - credentials already in config
 result = agent.invoke(
     {"messages": [{"role": "user", "content": "Search for Python"}]}
+)
+```
+
+## Automatic Prompt Enhancement
+
+Graphton automatically enhances your instructions with awareness of Deep Agents capabilities. This ensures agents understand what tools they have and when to use them.
+
+### What Gets Enhanced
+
+When you provide simple instructions like:
+
+```python
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="You are a helpful research assistant.",
+)
+```
+
+Graphton automatically adds context about:
+- **Planning System**: For breaking down complex multi-step tasks
+- **File System**: For storing and managing information across operations
+- **MCP Tools**: When configured, awareness of domain-specific capabilities
+
+### Why This Matters
+
+Deep Agents come with powerful built-in tools (planning, file system, subagents), but agents won't use them effectively unless they know they exist. Graphton bridges this gap by automatically informing agents about available capabilities.
+
+### Control and Flexibility
+
+- **Automatic by default**: Enhancement happens automatically for all agents
+- **Redundancy is fine**: If your instructions already mention planning or file system, some overlap will occur. This is intentional - LLMs handle redundancy gracefully, and reinforcement is better than missing critical context
+- **Can be disabled**: Use `auto_enhance_prompt=False` to pass instructions as-is
+
+```python
+# Disable enhancement if you've already included all context
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="Detailed instructions with all tool context...",
+    auto_enhance_prompt=False,  # Use prompt as-is
 )
 ```
 

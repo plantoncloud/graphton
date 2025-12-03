@@ -94,6 +94,91 @@ system_prompt = ""
 
 ### Optional Parameters
 
+#### auto_enhance_prompt: bool = True
+
+Whether to automatically enhance `system_prompt` with awareness of Deep Agents capabilities.
+
+**Default**: `True` (automatic enhancement enabled)
+
+**What it does**:
+- Appends high-level context about planning system (write_todos, read_todos)
+- Adds awareness of file system tools (ls, read_file, write_file, edit_file, glob, grep)
+- Includes MCP tools context when MCP is configured
+- Helps agents understand what capabilities they have and when to use them
+
+**Enhancement philosophy**:
+- Always appends (doesn't try to detect redundancy)
+- Keeps enhancement minimal and high-level (under 150 words)
+- Focuses on WHEN/WHY to use capabilities, not HOW (middleware handles details)
+- User instructions always come first, capability context added after
+
+**When to disable**:
+- You've already included comprehensive capability descriptions in your system_prompt
+- You need complete control over every word in the prompt
+- You're testing minimal prompts or conducting prompt experiments
+
+**Examples**:
+
+```python
+# Default: automatic enhancement (recommended)
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="You are a research assistant.",
+    # auto_enhance_prompt=True by default
+)
+# Result: Agent understands it has planning and file system tools
+
+# With MCP tools configured
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="You help manage cloud resources.",
+    mcp_servers={...},
+    mcp_tools={...},
+    # Enhancement includes MCP awareness
+)
+
+# Opt-out when you've included everything
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="""You are a research assistant.
+
+    Available tools:
+    - Planning: Use write_todos/read_todos for complex multi-step tasks
+    - File System: Use ls, read_file, write_file, etc. for context management
+    - [... comprehensive capability descriptions ...]
+    """,
+    auto_enhance_prompt=False,  # Already included all context
+)
+```
+
+**Redundancy handling**:
+
+If your `system_prompt` already mentions planning or file system, some overlap will occur. This is **intentional and acceptable**:
+- LLMs handle redundant information gracefully
+- Reinforcement helps ensure agents actually use available tools
+- Better to have slight redundancy than miss informing the agent
+
+**What gets added** (example):
+
+```
+## Your Capabilities
+
+**Planning System**: For complex or multi-step tasks, you have access to a 
+planning system (write_todos, read_todos). Use it to break down work, track 
+progress, and manage task complexity. Skip it for simple single-step tasks.
+
+**File System**: You have file system tools (ls, read_file, write_file, 
+edit_file, glob, grep) for managing information across your work. Use the 
+file system to store large content, offload context, and maintain state 
+between operations. All file paths must start with '/'.
+
+**MCP Tools**: You have access to MCP (Model Context Protocol) tools 
+configured specifically for this agent. These are domain-specific tools 
+for specialized operations.
+```
+
+
+
 #### recursion_limit: int = 100
 
 Maximum agent reasoning steps before stopping.
