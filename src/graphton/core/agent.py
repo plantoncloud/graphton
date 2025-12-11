@@ -18,7 +18,6 @@ from pydantic import ValidationError
 from graphton.core.loop_detection import LoopDetectionMiddleware
 from graphton.core.models import parse_model_string
 from graphton.core.prompt_enhancement import enhance_user_instructions
-from graphton.core.tool_wrappers import create_lazy_tool_wrapper
 
 
 def create_deep_agent(
@@ -284,22 +283,12 @@ def create_deep_agent(
         )
         
         # Generate tool wrappers for all requested tools
-        # Use lazy wrappers if:
-        # 1. Dynamic mode (template variables present - need config values), OR
-        # 2. Deferred loading (tools not loaded yet due to async context at init)
-        # Use eager wrappers only when tools are guaranteed to be loaded
+        # Use eager wrappers now that tools are loaded at creation time
         mcp_tool_wrappers: list[BaseTool] = []
         for server_name, tool_names in mcp_tools.items():
             for tool_name in tool_names:
-                # Check if we should use lazy wrappers
-                use_lazy = mcp_middleware.is_dynamic or mcp_middleware._deferred_loading
-                
-                if use_lazy:
-                    # Lazy mode: Tools will be loaded at invocation time
-                    wrapper = create_lazy_tool_wrapper(tool_name, mcp_middleware)
-                else:
-                    # Eager mode: Tools already loaded, can access immediately
-                    wrapper = create_tool_wrapper(tool_name, mcp_middleware)
+                # Tools are always loaded (or deferred), so use eager wrappers
+                wrapper = create_tool_wrapper(tool_name, mcp_middleware)
                 mcp_tool_wrappers.append(wrapper)  # type: ignore[arg-type]
         
         # Add MCP tools and middleware to the agent

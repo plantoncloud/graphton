@@ -14,7 +14,7 @@ class TestAsyncContextInitialization:
     """Tests for middleware initialization in async contexts."""
     
     async def test_static_config_in_async_context(self) -> None:
-        """Test that static config defers loading when initialized in async context.
+        """Test that config defers loading when initialized in async context.
         
         This simulates what happens when create_deep_agent() is called from
         within a Temporal activity or other async context where an event loop
@@ -34,10 +34,6 @@ class TestAsyncContextInitialization:
         # Instead, it should defer loading
         middleware = McpToolsLoader(servers, tool_filter)
         
-        # Verify it's detected as static (no template variables)
-        assert middleware.is_dynamic is False
-        assert middleware.template_vars == set()
-        
         # Verify loading was deferred (not loaded at init time)
         assert middleware._deferred_loading is True
         assert middleware._tools_loaded is False
@@ -45,18 +41,17 @@ class TestAsyncContextInitialization:
         # Note: We can't actually test the deferred loading here without a real MCP server
         # The actual loading will fail, but we've verified the mechanism works
     
-    async def test_dynamic_config_in_async_context(self) -> None:
-        """Test that dynamic config works normally in async context.
+    async def test_resolved_config_in_async_context(self) -> None:
+        """Test that resolved config works normally in async context.
         
-        Dynamic configs don't try to load tools at init time, so they should
-        work the same way regardless of whether initialized in sync or async context.
+        All configs (with auth already resolved) defer loading in async context.
         """
         servers = {
             "planton-cloud": {
                 "transport": "streamable_http",
                 "url": "https://mcp.planton.ai/",
                 "headers": {
-                    "Authorization": "Bearer {{USER_TOKEN}}"
+                    "Authorization": "Bearer pck_abc123..."
                 }
             }
         }
@@ -65,11 +60,9 @@ class TestAsyncContextInitialization:
         # Initialize middleware in async context
         middleware = McpToolsLoader(servers, tool_filter)
         
-        # Dynamic configs should not try to load tools at init time
-        assert middleware.is_dynamic is True
-        assert middleware.template_vars == {"USER_TOKEN"}
+        # Should defer loading in async context
         assert middleware._tools_loaded is False
-        assert middleware._deferred_loading is False
+        assert middleware._deferred_loading is True
     
     def test_static_config_in_sync_context(self) -> None:
         """Test that static config attempts immediate loading in sync context.
@@ -105,7 +98,7 @@ class TestAsyncContextInitialization:
         # Should fail to load tools (no real server), but with a different error
         # The important thing is it tried to load (not deferred)
         assert result["error"] is not None
-        assert "Static MCP tool loading failed" in result["error"]
+        assert "MCP tool loading failed" in result["error"]
 
 
 class TestDeferredLoadingBehavior:
@@ -128,21 +121,21 @@ class TestDeferredLoadingBehavior:
         assert middleware._deferred_loading is True
         assert middleware._tools_loaded is False
     
-    async def test_deferred_flag_not_set_for_dynamic(self) -> None:
-        """Test that _deferred_loading flag is not set for dynamic configs."""
+    async def test_deferred_flag_set_in_all_async_contexts(self) -> None:
+        """Test that _deferred_loading flag is set for all configs in async context."""
         servers = {
-            "dynamic-server": {
+            "server": {
                 "url": "https://api.example.com",
-                "headers": {"Authorization": "Bearer {{TOKEN}}"}
+                "headers": {"Authorization": "Bearer token123"}
             }
         }
-        tool_filter = {"dynamic-server": ["tool1"]}
+        tool_filter = {"server": ["tool1"]}
         
         # Create in async context
         middleware = McpToolsLoader(servers, tool_filter)
         
-        # Dynamic configs don't need deferred loading
-        assert middleware._deferred_loading is False
+        # All configs defer loading in async context
+        assert middleware._deferred_loading is True
         assert middleware._tools_loaded is False
 
 
@@ -227,9 +220,6 @@ class TestRealWorldAsyncScenarios:
         # This is what happens in execute_graphton activity
         # Should not raise "Cannot run the event loop while another loop is running"
         middleware = McpToolsLoader(mcp_servers, mcp_tools)
-        
-        # Verify it's static (no template variables in resolved config)
-        assert middleware.is_dynamic is False
         
         # Verify loading was deferred
         assert middleware._deferred_loading is True

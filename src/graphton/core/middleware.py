@@ -1,19 +1,8 @@
-"""Middleware for loading MCP tools with universal authentication support.
+"""Middleware for loading MCP tools at agent creation time.
 
-This middleware supports both static and dynamic MCP server configurations:
-
-**Static configs** (no template variables):
-- Tools are loaded once at agent creation time
-- No runtime overhead
-- Ideal for servers with hardcoded credentials or no authentication
-
-**Dynamic configs** (with {{VAR_NAME}} templates):
-- Templates are substituted at invocation time using config['configurable']
-- Tools are loaded per-request with user-specific credentials
-- Ideal for multi-tenant systems or user-specific authentication
-
-The middleware automatically detects which mode to use based on the presence
-of template variables in the server configurations.
+This middleware loads MCP tools when the agent is created, assuming that
+the MCP server configuration is complete and ready to use (authentication
+already resolved by the caller).
 """
 
 import asyncio
@@ -24,58 +13,30 @@ from langchain.agents.middleware.types import AgentMiddleware, AgentState
 from langgraph.runtime import Runtime
 
 from graphton.core.mcp_manager import load_mcp_tools
-from graphton.core.template import extract_template_vars, substitute_templates
 
 logger = logging.getLogger(__name__)
 
 
 class McpToolsLoader(AgentMiddleware):
-    """Middleware to load MCP tools with universal authentication support.
+    """Middleware to load MCP tools at agent creation time.
     
-    This middleware automatically detects static vs dynamic configurations:
+    This middleware loads MCP tools immediately when the agent is created,
+    assuming that all MCP server configurations are complete and ready to use
+    (i.e., authentication tokens have already been resolved by the caller).
     
-    - **Static mode**: No template variables ({{VAR}}) found in configs
-      - Tools loaded once at initialization
-      - Zero runtime overhead
-      - Use for hardcoded credentials or public servers
-    
-    - **Dynamic mode**: Template variables found in configs
-      - Templates substituted from config['configurable'] at invocation
-      - Tools loaded per-request with user-specific auth
-      - Use for multi-tenant or user-specific authentication
-    
-    Example (Dynamic - Planton Cloud):
+    Example:
         >>> servers = {
         ...     "planton-cloud": {
         ...         "transport": "streamable_http",
         ...         "url": "https://mcp.planton.ai/",
         ...         "headers": {
-        ...             "Authorization": "Bearer {{USER_TOKEN}}"
+        ...             "Authorization": "Bearer pck_abc123..."
         ...         }
         ...     }
         ... }
         >>> tool_filter = {"planton-cloud": ["list_organizations"]}
         >>> middleware = McpToolsLoader(servers, tool_filter)
-        >>> middleware.is_dynamic
-        True
-        >>> # Later, at invocation:
-        >>> # agent.invoke(input, config={'configurable': {'USER_TOKEN': 'token123'}})
-    
-    Example (Static - Public server):
-        >>> servers = {
-        ...     "public-api": {
-        ...         "transport": "http",
-        ...         "url": "https://api.example.com/mcp",
-        ...         "headers": {
-        ...             "X-API-Key": "hardcoded-key-123"
-        ...         }
-        ...     }
-        ... }
-        >>> tool_filter = {"public-api": ["search", "fetch"]}
-        >>> middleware = McpToolsLoader(servers, tool_filter)
-        >>> middleware.is_dynamic
-        False
-        >>> # Tools already loaded - no runtime overhead
+        >>> # Tools are loaded immediately (or deferred if in async context)
     """
     
     def __init__(
@@ -86,40 +47,25 @@ class McpToolsLoader(AgentMiddleware):
         """Initialize MCP tools loader middleware.
         
         Args:
-            servers: Dictionary of server_name -> raw MCP server config.
-                Configs can contain template variables like {{VAR_NAME}}.
+            servers: Dictionary of server_name -> complete MCP server config
+                with authentication already resolved.
             tool_filter: Dictionary of server_name -> list of tool names to load.
 
         """
         self.servers = servers
         self.tool_filter = tool_filter
         
-        # Auto-detect static vs dynamic based on template variables
-        self.template_vars = extract_template_vars(servers)
-        self.is_dynamic = bool(self.template_vars)
-        
         # Track whether tools have been loaded
         self._tools_loaded = False
         self._tools_cache: dict[str, Any] = {}
         self._deferred_loading = False
         
-        # If static config (no templates), load tools immediately
-        if not self.is_dynamic:
-            logger.info(
-                "Static MCP configuration detected (no template variables). "
-                "Loading tools at agent creation time..."
-            )
-            self._load_static_tools()
-        else:
-            logger.info(
-                f"Dynamic MCP configuration detected (template variables: {sorted(self.template_vars)}). "
-                "Tools will be loaded at invocation time with user-provided values."
-            )
+        # Load tools immediately at agent creation
+        logger.info("Loading MCP tools at agent creation time...")
+        self._load_tools_sync()
     
-    def _load_static_tools(self) -> None:
-        """Load tools for static configurations (synchronous wrapper).
-        
-        Called at initialization for static configs (no template variables).
+    def _load_tools_sync(self) -> None:
+        """Load tools synchronously at initialization.
         
         If called from an async context (event loop already running), defers
         tool loading until the first middleware invocation to avoid event loop
@@ -134,7 +80,7 @@ class McpToolsLoader(AgentMiddleware):
                     # Defer loading until first middleware call to avoid nesting
                     logger.info(
                         "Async context detected (event loop running). "
-                        "Deferring static tool loading to first invocation."
+                        "Deferring tool loading to first invocation."
                     )
                     self._deferred_loading = True
                     return
@@ -150,7 +96,7 @@ class McpToolsLoader(AgentMiddleware):
             
             if not tools:
                 raise RuntimeError(
-                    "No MCP tools were loaded from static configuration. "
+                    "No MCP tools were loaded. "
                     "Check server accessibility and tool filter."
                 )
             
@@ -159,32 +105,32 @@ class McpToolsLoader(AgentMiddleware):
             self._tools_loaded = True
             
             logger.info(
-                f"Successfully loaded {len(tools)} static MCP tool(s) at creation time: "
+                f"Successfully loaded {len(tools)} MCP tool(s) at creation time: "
                 f"{list(self._tools_cache.keys())}"
             )
             
         except Exception as e:
-            logger.error(f"Failed to load static MCP tools: {e}", exc_info=True)
+            logger.error(f"Failed to load MCP tools: {e}", exc_info=True)
             raise RuntimeError(
-                f"Static MCP tool loading failed during initialization: {e}. "
+                f"MCP tool loading failed during initialization: {e}. "
                 "Check MCP server connectivity and configuration."
             ) from e
     
-    async def _load_static_tools_async(self) -> None:
-        """Load tools for static configurations asynchronously.
+    async def _load_tools_async(self) -> None:
+        """Load tools asynchronously.
         
         Called from abefore_agent() when tool loading was deferred due to
         async context at initialization time.
         """
         try:
-            logger.info("Loading static MCP tools (deferred from initialization)...")
+            logger.info("Loading MCP tools (deferred from initialization)...")
             
             # Load tools asynchronously
             tools = await load_mcp_tools(self.servers, self.tool_filter)
             
             if not tools:
                 raise RuntimeError(
-                    "No MCP tools were loaded from static configuration. "
+                    "No MCP tools were loaded. "
                     "Check server accessibility and tool filter."
                 )
             
@@ -193,14 +139,14 @@ class McpToolsLoader(AgentMiddleware):
             self._tools_loaded = True
             
             logger.info(
-                f"Successfully loaded {len(tools)} static MCP tool(s) (deferred): "
+                f"Successfully loaded {len(tools)} MCP tool(s) (deferred): "
                 f"{list(self._tools_cache.keys())}"
             )
             
         except Exception as e:
-            logger.error(f"Failed to load static MCP tools (deferred): {e}", exc_info=True)
+            logger.error(f"Failed to load MCP tools (deferred): {e}", exc_info=True)
             raise RuntimeError(
-                f"Static MCP tool loading failed during deferred initialization: {e}. "
+                f"MCP tool loading failed during deferred initialization: {e}. "
                 "Check MCP server connectivity and configuration."
             ) from e
     
@@ -209,142 +155,30 @@ class McpToolsLoader(AgentMiddleware):
         state: AgentState[Any],
         runtime: Runtime[None] | dict[str, Any],
     ) -> dict[str, Any] | None:
-        """Load MCP tools before agent execution (async).
+        """Load MCP tools if deferred from initialization.
         
-        Behavior depends on configuration mode:
-        
-        - **Static mode**: Tools already loaded at initialization, returns immediately
-          (or loads now if deferred from async context at init time)
-        - **Dynamic mode**: Substitutes templates from runtime context and loads tools
-        
-        This is the async version that directly awaits MCP tool loading, avoiding
-        the event loop deadlock that occurred with run_coroutine_threadsafe.
+        If tool loading was deferred during initialization (due to being in an
+        async context), load the tools now.
         
         Args:
             state: Current agent state (unused but required by middleware protocol)
-            runtime: Runtime object (production) or dict (tests) containing template values
+            runtime: Runtime object (unused)
             
         Returns:
             None (tools are cached in instance for wrapper access)
             
         Raises:
-            ValueError: If runtime context is missing or required template variables not provided
             RuntimeError: If MCP tools fail to load
 
         """
-        # Static mode: check if deferred loading is needed
-        if not self.is_dynamic:
-            # If loading was deferred (async context at init), load now
-            if self._deferred_loading and not self._tools_loaded:
-                await self._load_static_tools_async()
-                self._deferred_loading = False
-            else:
-                logger.debug("Static MCP mode: tools already loaded, skipping")
-            return None
+        # If loading was deferred (async context at init), load now
+        if self._deferred_loading and not self._tools_loaded:
+            await self._load_tools_async()
+            self._deferred_loading = False
+        else:
+            logger.debug("MCP tools already loaded, skipping")
         
-        # Dynamic mode: substitute templates and load tools
-        
-        # Check if already loaded for this instance (idempotency)
-        if self._tools_loaded:
-            logger.info("MCP tools already loaded for this execution, skipping")
-            return None
-        
-        logger.info("Loading MCP tools with dynamic authentication...")
-        
-        try:
-            # Extract template values from runtime context
-            # Handle both Runtime objects (production) and plain dicts (tests)
-            if not runtime:
-                raise ValueError(
-                    f"Dynamic MCP configuration requires template variables: {sorted(self.template_vars)}. "
-                    f"Pass config={{'configurable': {{{', '.join(f'{v!r}: value' for v in sorted(self.template_vars))}}}}} "
-                    "when invoking agent."
-                )
-            
-            # Extract config from runtime object
-            if hasattr(runtime, 'context'):
-                # Production: Runtime object - runtime.context IS the configurable dict
-                # The framework maps config["configurable"] directly to runtime.context
-                configurable = runtime.context or {}
-                if not configurable:
-                    raise ValueError(
-                        f"Dynamic MCP configuration requires template variables: {sorted(self.template_vars)}. "
-                        f"Pass config={{'configurable': {{{', '.join(f'{v!r}: value' for v in sorted(self.template_vars))}}}}} "
-                        "when invoking agent."
-                    )
-
-            elif isinstance(runtime, dict):
-                # Tests: plain dict with 'configurable' key (for test compatibility)
-                config = runtime
-                if "configurable" not in config:
-                    raise ValueError(
-                        f"Dynamic MCP configuration requires template variables: {sorted(self.template_vars)}. "
-                        f"Pass config={{'configurable': {{{', '.join(f'{v!r}: value' for v in sorted(self.template_vars))}}}}} "
-                        "when invoking agent."
-                    )
-                configurable = config["configurable"]
-            else:
-                # Unknown type
-                raise ValueError(
-                    f"Dynamic MCP configuration requires template variables: {sorted(self.template_vars)}. "
-                    f"Unexpected runtime type: {type(runtime)}. "
-                    f"Pass config={{'configurable': {{{', '.join(f'{v!r}: value' for v in sorted(self.template_vars))}}}}} "
-                    "when invoking agent."
-                )
-            
-            # Validate all required template variables are provided
-            provided_vars = set(configurable.keys())
-            missing_vars = self.template_vars - provided_vars
-            
-            if missing_vars:
-                raise ValueError(
-                    f"Missing required template variables: {sorted(missing_vars)}. "
-                    f"Provide these in config['configurable']: "
-                    f"{', '.join(sorted(missing_vars))}"
-                )
-            
-            logger.info(
-                f"Successfully extracted template values for: {sorted(self.template_vars)}"
-            )
-            
-            # Substitute template variables with actual values
-            substituted_servers = substitute_templates(
-                self.servers,
-                configurable
-            )
-            
-            logger.debug(f"Template substitution complete for {len(substituted_servers)} server(s)")
-            
-            # Load MCP tools asynchronously - direct await, no deadlock!
-            # This runs naturally in the async context without blocking
-            tools = await load_mcp_tools(substituted_servers, self.tool_filter)
-            
-            if not tools:
-                raise RuntimeError(
-                    "No MCP tools were loaded. "
-                    "Check MCP server accessibility and user permissions."
-                )
-            
-            # Cache tools by name for wrapper access
-            self._tools_cache = {tool.name: tool for tool in tools}
-            self._tools_loaded = True
-            
-            logger.info(
-                f"Successfully loaded {len(tools)} MCP tool(s) with dynamic auth: "
-                f"{list(self._tools_cache.keys())}"
-            )
-            
-            return None
-            
-        except ValueError as e:
-            logger.error(f"Configuration error: {e}")
-            raise
-        except Exception as e:
-            logger.error(f"Failed to load MCP tools: {e}", exc_info=True)
-            raise RuntimeError(
-                f"MCP tool loading failed: {e}. "
-                "Check MCP server connectivity and authentication."
-            ) from e
+        return None
     
     async def aafter_agent(
         self,
@@ -353,10 +187,7 @@ class McpToolsLoader(AgentMiddleware):
     ) -> dict[str, Any] | None:
         """Cleanup after agent execution (async).
         
-        For dynamic configs, clears the tools cache to ensure fresh loading
-        on next invocation (in case tokens change).
-        
-        For static configs, keeps tools cached permanently.
+        Tools remain cached for the lifetime of the agent.
         
         Args:
             state: Current agent state (unused)
@@ -366,14 +197,7 @@ class McpToolsLoader(AgentMiddleware):
             None
 
         """
-        if self.is_dynamic:
-            # Clear cache for dynamic configs to ensure fresh auth on next request
-            self._tools_cache.clear()
-            self._tools_loaded = False
-            logger.debug("Cleared dynamic MCP tools cache for next execution")
-        
-        # For static configs, keep tools cached permanently
-        
+        # Keep tools cached permanently
         return None
     
     def get_tool(self, tool_name: str) -> Any:  # noqa: ANN401
@@ -396,12 +220,9 @@ class McpToolsLoader(AgentMiddleware):
 
         """
         if not self._tools_loaded:
-            mode = "dynamic" if self.is_dynamic else "static"
             raise RuntimeError(
-                f"MCP tools not loaded yet ({mode} mode). "
-                f"For static mode, this indicates initialization failure. "
-                f"For dynamic mode, ensure middleware.before_agent() has been called "
-                f"with proper config['configurable'] values."
+                "MCP tools not loaded yet. This indicates initialization failure "
+                "or that middleware.before_agent() hasn't been called yet."
             )
         
         if tool_name not in self._tools_cache:
