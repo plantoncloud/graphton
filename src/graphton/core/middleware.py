@@ -37,6 +37,7 @@ class McpToolsLoader(AgentMiddleware):
         >>> tool_filter = {"planton-cloud": ["list_organizations"]}
         >>> middleware = McpToolsLoader(servers, tool_filter)
         >>> # Tools are loaded immediately (or deferred if in async context)
+
     """
     
     def __init__(
