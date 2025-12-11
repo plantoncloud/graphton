@@ -282,6 +282,17 @@ def create_deep_agent(
             tool_filter=mcp_tools,
         )
         
+        # If tools were deferred due to async context, load them now
+        # This ensures tools are available for eager wrapper creation
+        # (Fixes: Dec 11 removal of lazy wrappers broke async contexts)
+        if mcp_middleware._deferred_loading:
+            import asyncio
+            # Load tools asynchronously before creating wrappers
+            asyncio.get_event_loop().run_until_complete(
+                mcp_middleware._load_tools_async()
+            )
+            mcp_middleware._deferred_loading = False
+        
         # Generate tool wrappers for all requested tools
         # Use eager wrappers now that tools are loaded at creation time
         mcp_tool_wrappers: list[BaseTool] = []
