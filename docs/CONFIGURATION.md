@@ -332,6 +332,212 @@ agent = create_deep_agent(
 )
 ```
 
+#### subagents: list[dict[str, Any]] | None = None
+
+Optional list of sub-agent specifications for task delegation.
+
+**Purpose**: Enable agents to delegate complex tasks to specialized sub-agents with isolated context windows.
+
+**Benefits**:
+- **Context isolation**: Each sub-agent has its own context window
+- **Token efficiency**: Main agent receives concise summaries, not full task history
+- **Parallel execution**: Launch multiple sub-agents simultaneously
+- **Specialization**: Different sub-agents with domain-specific instructions and tools
+
+**When to use sub-agents**:
+- Complex multi-step tasks that can be delegated
+- Independent parallel tasks
+- Tasks requiring focused reasoning without context bloat
+- Specialized domains (research, code review, data analysis)
+
+**Sub-agent specification**:
+
+Each sub-agent is a dict with these fields:
+
+- `name` (required, str): Unique identifier for the sub-agent
+- `description` (required, str): Description of what the sub-agent does (shown to main agent)
+- `system_prompt` (required, str): System prompt defining the sub-agent's behavior
+- `tools` (optional, list): Custom tools for this sub-agent (defaults to main agent's tools)
+- `middleware` (optional, list): Additional middleware for this sub-agent
+- `model` (optional, str or instance): Custom model for this sub-agent (defaults to main agent's model)
+
+**Examples**:
+
+```python
+# Basic sub-agents with default tools
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="You are a research coordinator.",
+    subagents=[
+        {
+            "name": "deep-researcher",
+            "description": "Conducts thorough research on complex topics",
+            "system_prompt": "You are a research specialist. Conduct thorough research, cite sources, and provide comprehensive analysis.",
+        },
+        {
+            "name": "code-reviewer",
+            "description": "Reviews code for quality and security",
+            "system_prompt": "You are a code review expert. Analyze code for bugs, security issues, and improvement opportunities.",
+        }
+    ],
+)
+
+# Sub-agents with custom tools
+from langchain_core.tools import tool
+
+@tool
+def lint_code(code: str) -> str:
+    """Run linter on code."""
+    return "Linting results..."
+
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="You are a development coordinator.",
+    subagents=[
+        {
+            "name": "linter",
+            "description": "Runs linting checks on code",
+            "system_prompt": "You are a linting specialist.",
+            "tools": [lint_code],  # Only linting tool, not all main tools
+        }
+    ],
+)
+
+# Sub-agents with custom model
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="You are a coordinator.",
+    subagents=[
+        {
+            "name": "fast-classifier",
+            "description": "Classifies input quickly",
+            "system_prompt": "You classify user input into categories.",
+            "model": "claude-haiku-4",  # Faster, cheaper model for simple task
+        }
+    ],
+)
+```
+
+**Validation rules**:
+- Each sub-agent must have `name`, `description`, and `system_prompt`
+- Sub-agent names must be unique
+- All fields must be non-empty strings
+
+**Error examples**:
+
+```python
+# ❌ Missing required field
+subagents=[{"name": "researcher", "description": "Research specialist"}]
+# ValueError: Sub-agent 0 missing required field 'system_prompt'
+
+# ❌ Duplicate names
+subagents=[
+    {"name": "agent1", "description": "...", "system_prompt": "..."},
+    {"name": "agent1", "description": "...", "system_prompt": "..."}
+]
+# ValueError: Duplicate sub-agent names found: {'agent1'}
+
+# ❌ Empty name
+subagents=[{"name": "", "description": "...", "system_prompt": "..."}]
+# ValueError: Sub-agent 0 'name' must be a non-empty string
+```
+
+**Usage in agent execution**:
+
+When sub-agents are configured, the main agent gets a `task` tool:
+
+```python
+# Main agent can delegate to sub-agents
+result = agent.invoke({
+    "messages": [{
+        "role": "user",
+        "content": "Research quantum computing and review this code: ..."
+    }]
+})
+
+# Agent uses task tool internally:
+# - Identifies research task → delegates to "deep-researcher" sub-agent
+# - Identifies code review task → delegates to "code-reviewer" sub-agent
+# - Receives concise summaries from both sub-agents
+# - Synthesizes final response to user
+```
+
+#### general_purpose_agent: bool = True
+
+Whether to include a general-purpose sub-agent.
+
+**Default**: `True` (general-purpose sub-agent included)
+
+**What it does**:
+When `True`, automatically creates a special "general-purpose" sub-agent with:
+- Same model as main agent
+- Same tools as main agent
+- Generic system prompt
+
+**Purpose**: 
+The general-purpose sub-agent is not for specialization - it's for **context isolation**:
+- Breaking down multi-part requests into isolated tasks
+- Running token-heavy operations without bloating main context
+- Parallelizing independent work
+- Keeping main thread clean with concise summaries
+
+**When to use general-purpose sub-agent**:
+- Parallel research on multiple topics (each in isolated context)
+- Large context tasks (codebase analysis) that return concise reports
+- Breaking down complex requests without defining specialized sub-agents
+
+**Examples**:
+
+```python
+# Default: includes general-purpose sub-agent
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="You are a coordinator.",
+    # general_purpose_agent=True by default
+)
+# Main agent can delegate to "general-purpose" sub-agent for any task
+
+# With custom sub-agents AND general-purpose
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="You are a coordinator.",
+    subagents=[
+        {"name": "specialist", "description": "...", "system_prompt": "..."}
+    ],
+    general_purpose_agent=True,  # Also get general-purpose
+)
+# Agent has TWO sub-agents: "specialist" and "general-purpose"
+
+# Disable general-purpose (only custom sub-agents)
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="You are a coordinator.",
+    subagents=[
+        {"name": "specialist", "description": "...", "system_prompt": "..."}
+    ],
+    general_purpose_agent=False,  # Only "specialist" sub-agent
+)
+```
+
+**Use case example** (parallel research):
+
+```
+User: "Research LeBron James, Michael Jordan, and Kobe Bryant, then compare."
+
+Main Agent:
+- Spawns 3 general-purpose sub-agents (one per player)
+- Each researches independently with isolated context
+- Each returns synthesized summary (not full research history)
+- Main agent compares the 3 summaries
+
+Benefit: Each sub-agent can dive deep (use lots of tokens), but main agent 
+only sees concise summaries. Saves tokens and keeps main context clean.
+```
+
+**Recommendation**: Leave at default (`True`) unless you:
+- Only want your custom specialized sub-agents
+- Have a specific reason to disable context isolation
+
 ## MCP Configuration
 
 Graphton's universal MCP authentication framework supports any MCP server configuration format and authentication method through template-based token injection.

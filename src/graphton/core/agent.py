@@ -33,6 +33,8 @@ def create_deep_agent(
     max_tokens: int | None = None,
     temperature: float | None = None,
     auto_enhance_prompt: bool = True,
+    subagents: list[dict[str, Any]] | None = None,
+    general_purpose_agent: bool = True,
     **model_kwargs: Any,  # noqa: ANN401
 ) -> CompiledStateGraph:
     """Create a Deep Agent with minimal boilerplate.
@@ -98,6 +100,15 @@ def create_deep_agent(
         auto_enhance_prompt: Automatically enhance system_prompt with awareness of
             available capabilities (planning, file system, execute, MCP tools).
             Default is True. Set to False to use system_prompt exactly as provided.
+        subagents: Optional list of sub-agent specifications for task delegation.
+            Each sub-agent is a dict with keys: name (str), description (str),
+            system_prompt (str), and optionally tools (list), middleware (list),
+            model (str or instance). Sub-agents enable context isolation and
+            parallel execution of independent tasks.
+        general_purpose_agent: Whether to include a general-purpose sub-agent
+            (default: True). The general-purpose sub-agent has the same tools
+            and model as the main agent, useful for breaking down tasks without
+            defining specialized sub-agents.
         **model_kwargs: Additional model-specific parameters to pass to the model
             constructor (e.g., top_p, top_k for Anthropic).
     
@@ -168,6 +179,30 @@ def create_deep_agent(
         ...     system_prompt="Detailed instructions with all context already included.",
         ...     auto_enhance_prompt=False,  # Use prompt as-is
         ... )
+        
+        Agent with sub-agents for specialized tasks:
+        
+        >>> agent = create_deep_agent(
+        ...     model="claude-sonnet-4.5",
+        ...     system_prompt="You are a research coordinator.",
+        ...     subagents=[
+        ...         {
+        ...             "name": "deep-researcher",
+        ...             "description": "Conducts thorough research on complex topics",
+        ...             "system_prompt": "You are a research specialist...",
+        ...         },
+        ...         {
+        ...             "name": "code-reviewer",
+        ...             "description": "Reviews code for quality and security",
+        ...             "system_prompt": "You are a code review expert...",
+        ...         }
+        ...     ],
+        ...     general_purpose_agent=True,  # Also include general-purpose sub-agent
+        ... )
+        >>> # Main agent can delegate to sub-agents via task tool
+        >>> result = agent.invoke({
+        ...     "messages": [{"role": "user", "content": "Research X and review code Y"}]
+        ... })
     
     Note:
         System prompt enhancement is automatic by default. If your system_prompt
@@ -210,6 +245,8 @@ def create_deep_agent(
             recursion_limit=recursion_limit,
             max_tokens=max_tokens,
             temperature=temperature,
+            subagents=subagents,
+            general_purpose_agent=general_purpose_agent,
         )
     except ValidationError as e:
         # Re-raise with context about configuration validation
@@ -255,6 +292,14 @@ def create_deep_agent(
         enabled=True,
     )
     middleware_list.append(loop_detection)
+    
+    # Transform subagents to DeepAgents format if provided
+    # DeepAgents SubAgent type expects 'system_prompt' key (matching our format)
+    transformed_subagents = None
+    if subagents is not None:
+        # DeepAgents format matches ours, just pass through
+        # No transformation needed except ensuring it's properly formatted
+        transformed_subagents = subagents
     
     # MCP integration (Universal Authentication Framework)
     if mcp_servers and mcp_tools:
@@ -337,11 +382,13 @@ def create_deep_agent(
         backend = create_sandbox_backend(sandbox_config)
     
     # Create the Deep Agent using deepagents library
+    # DeepAgents automatically adds SubAgentMiddleware when subagents are provided
     agent = deepagents_create_deep_agent(
         model=model_instance,
         tools=tools_list,
         system_prompt=enhanced_prompt,
         middleware=middleware_list,
+        subagents=transformed_subagents,  # Pass transformed subagents to DeepAgents
         context_schema=context_schema,
         backend=backend,
     )

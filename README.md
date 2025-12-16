@@ -128,6 +128,53 @@ result = agent.invoke(
 )
 ```
 
+### Agent with Sub-agents
+
+Delegate complex tasks to specialized sub-agents with isolated context:
+
+```python
+from graphton import create_deep_agent
+
+agent = create_deep_agent(
+    model="claude-sonnet-4.5",
+    system_prompt="You are a research coordinator that delegates specialized tasks.",
+    
+    # Define specialized sub-agents
+    subagents=[
+        {
+            "name": "deep-researcher",
+            "description": "Conducts thorough research on complex topics with comprehensive analysis",
+            "system_prompt": "You are a research specialist. Conduct thorough research, cite sources, and provide comprehensive analysis.",
+        },
+        {
+            "name": "code-reviewer",
+            "description": "Reviews code for quality, security, and best practices",
+            "system_prompt": "You are a code review expert. Analyze code for bugs, security issues, and improvement opportunities.",
+        }
+    ],
+    
+    # Include general-purpose sub-agent for other tasks
+    general_purpose_agent=True,
+)
+
+# The agent can now delegate tasks to sub-agents
+result = agent.invoke({
+    "messages": [{"role": "user", "content": "Research quantum computing and review the attached code"}]
+})
+```
+
+**When to use sub-agents:**
+- Complex multi-step tasks that can be delegated
+- Independent parallel tasks  
+- Tasks requiring focused reasoning without context bloat
+- Specialized domains (research, code review, data analysis)
+
+**Benefits:**
+- **Context isolation**: Each sub-agent has its own context window
+- **Token efficiency**: Main agent gets concise summaries, not full task history
+- **Parallel execution**: Launch multiple sub-agents simultaneously
+- **Specialization**: Different sub-agents with domain-specific tools
+
 ## Automatic Prompt Enhancement
 
 Graphton automatically enhances your instructions with awareness of Deep Agents capabilities. This ensures agents understand what tools they have and when to use them.

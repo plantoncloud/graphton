@@ -36,6 +36,8 @@ class AgentConfig(BaseModel):
         recursion_limit: Maximum recursion depth (default: 100)
         max_tokens: Override default max_tokens for the model
         temperature: Override default temperature for the model
+        subagents: Optional list of sub-agent specifications for task delegation
+        general_purpose_agent: Whether to include general-purpose sub-agent (default: True)
     
     Example:
         >>> config = AgentConfig(
@@ -69,6 +71,8 @@ class AgentConfig(BaseModel):
     max_tokens: int | None = None
     temperature: float | None = None
     auto_enhance_prompt: bool = True
+    subagents: list[dict[str, Any]] | None = None
+    general_purpose_agent: bool = True
     
     model_config = ConfigDict(arbitrary_types_allowed=True)
     
@@ -253,6 +257,85 @@ class AgentConfig(BaseModel):
                 f"Unsupported sandbox type: {sandbox_type}. "
                 f"Supported types: {', '.join(sorted(supported_types))}"
             )
+        
+        return v
+    
+    @field_validator("subagents")
+    @classmethod
+    def validate_subagents(
+        cls, v: list[dict[str, Any]] | None
+    ) -> list[dict[str, Any]] | None:
+        """Validate sub-agent specifications.
+        
+        Args:
+            v: List of sub-agent specifications
+            
+        Returns:
+            Validated sub-agent list
+            
+        Raises:
+            ValueError: If sub-agent configuration is invalid
+        
+        """
+        if v is None:
+            return v
+        
+        if not isinstance(v, list):
+            raise ValueError(
+                f"subagents must be a list, got {type(v).__name__}"
+            )
+        
+        # Validate each sub-agent specification
+        for i, subagent in enumerate(v):
+            if not isinstance(subagent, dict):
+                raise ValueError(
+                    f"Sub-agent {i} must be a dict, got {type(subagent).__name__}"
+                )
+            
+            # Check required fields
+            if "name" not in subagent:
+                raise ValueError(
+                    f"Sub-agent {i} missing required field 'name'. "
+                    "Each sub-agent must have: name, description, system_prompt"
+                )
+            
+            if "description" not in subagent:
+                raise ValueError(
+                    f"Sub-agent {i} missing required field 'description'. "
+                    "Each sub-agent must have: name, description, system_prompt"
+                )
+            
+            if "system_prompt" not in subagent:
+                raise ValueError(
+                    f"Sub-agent {i} missing required field 'system_prompt'. "
+                    "Each sub-agent must have: name, description, system_prompt"
+                )
+            
+            # Validate field types
+            if not isinstance(subagent["name"], str) or not subagent["name"].strip():
+                raise ValueError(
+                    f"Sub-agent {i} 'name' must be a non-empty string"
+                )
+            
+            if not isinstance(subagent["description"], str) or not subagent["description"].strip():
+                raise ValueError(
+                    f"Sub-agent {i} 'description' must be a non-empty string"
+                )
+            
+            if not isinstance(subagent["system_prompt"], str) or not subagent["system_prompt"].strip():
+                raise ValueError(
+                    f"Sub-agent {i} 'system_prompt' must be a non-empty string"
+                )
+        
+        # Check for duplicate sub-agent names
+        if len(v) > 1:
+            names = [s["name"] for s in v]
+            if len(names) != len(set(names)):
+                duplicates = [name for name in names if names.count(name) > 1]
+                raise ValueError(
+                    f"Duplicate sub-agent names found: {set(duplicates)}. "
+                    "Each sub-agent must have a unique name."
+                )
         
         return v
     
