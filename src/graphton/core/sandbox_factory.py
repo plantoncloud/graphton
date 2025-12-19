@@ -40,7 +40,17 @@ def create_sandbox_backend(config: dict[str, Any]) -> BackendProtocol:
         ValueError: If required configuration parameters are missing.
     
     Examples:
-        Create Daytona sandbox backend with pre-built snapshot (recommended):
+        Reuse existing Daytona sandbox (recommended for performance):
+        
+        >>> config = {
+        ...     "type": "daytona",
+        ...     "sandbox_id": "sandbox-xyz789"  # Reuse existing sandbox
+        ... }
+        >>> backend = create_sandbox_backend(config)
+        >>> # Requires DAYTONA_API_KEY environment variable
+        >>> # Instant connection to existing sandbox with skills/state preserved
+        
+        Create Daytona sandbox backend with pre-built snapshot:
         
         >>> config = {
         ...     "type": "daytona",
@@ -110,38 +120,75 @@ def create_sandbox_backend(config: dict[str, Any]) -> BackendProtocol:
                 "DAYTONA_API_KEY environment variable."
             )
         
-        # Get optional snapshot_id from config
-        snapshot_id = config.get("snapshot_id")
+        # Get optional parameters from config
+        sandbox_id = config.get("sandbox_id")  # Reuse existing sandbox
+        snapshot_id = config.get("snapshot_id")  # Create from snapshot
         
         # Create Daytona client
         daytona = Daytona(DaytonaConfig(api_key=api_key))
         
-        # Create sandbox with or without snapshot
-        if snapshot_id:
+        # Create or reuse sandbox
+        if sandbox_id:
+            # Reuse existing sandbox (for skills, persistent state, etc.)
+            try:
+                sandbox = daytona.get(sandbox_id)
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to retrieve existing sandbox {sandbox_id}: {e}"
+                ) from e
+            
+            # Verify sandbox is alive and responsive
+            try:
+                result = sandbox.process.exec("echo ready", timeout=5)
+                if result.exit_code != 0:
+                    raise RuntimeError(f"Sandbox {sandbox_id} is not responsive")
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to connect to existing sandbox {sandbox_id}: {e}"
+                ) from e
+        elif snapshot_id:
             # Create from pre-built snapshot for instant spin-up
             params = CreateSandboxFromSnapshotParams(snapshot=snapshot_id)
             sandbox = daytona.create(params=params)
+            
+            # Poll until sandbox is ready (Daytona requires this)
+            for _ in range(90):  # 180s timeout (90 * 2s)
+                try:
+                    result = sandbox.process.exec("echo ready", timeout=5)
+                    if result.exit_code == 0:
+                        break
+                except Exception:
+                    pass
+                time.sleep(2)
+            else:
+                # Cleanup on timeout
+                try:
+                    sandbox.delete()
+                finally:
+                    raise RuntimeError(
+                        "Daytona sandbox failed to start within 180 seconds"
+                    )
         else:
             # Create vanilla sandbox
             sandbox = daytona.create()
-        
-        # Poll until sandbox is ready (Daytona requires this)
-        for _ in range(90):  # 180s timeout (90 * 2s)
-            try:
-                result = sandbox.process.exec("echo ready", timeout=5)
-                if result.exit_code == 0:
-                    break
-            except Exception:
-                pass
-            time.sleep(2)
-        else:
-            # Cleanup on timeout
-            try:
-                sandbox.delete()
-            finally:
-                raise RuntimeError(
-                    "Daytona sandbox failed to start within 180 seconds"
-                )
+            
+            # Poll until sandbox is ready (Daytona requires this)
+            for _ in range(90):  # 180s timeout (90 * 2s)
+                try:
+                    result = sandbox.process.exec("echo ready", timeout=5)
+                    if result.exit_code == 0:
+                        break
+                except Exception:
+                    pass
+                time.sleep(2)
+            else:
+                # Cleanup on timeout
+                try:
+                    sandbox.delete()
+                finally:
+                    raise RuntimeError(
+                        "Daytona sandbox failed to start within 180 seconds"
+                    )
         
         return DaytonaBackend(sandbox)
     
